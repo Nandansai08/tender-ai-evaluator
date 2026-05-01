@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Tender Evaluator</title>
+    <title>TenderWiseAi</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Tender Evaluation Platform</p>
-          <h1>AI Tender Evaluator</h1>
+          <p class="eyebrow">TenderWiseAi</p>
+          <h1>TenderWiseAi</h1>
           <p class="hero-text">
             An AI-assisted tender eligibility analysis with criterion extraction,
             bidder evaluation, explainable verdicts, and manual-review escalation.
@@ -30,7 +30,9 @@
 
       <nav class="section-nav" aria-label="Page sections">
         <a href="#tender-snapshot">Tender Snapshot</a>
+        <a href="#portfolio-summary-section">Portfolio Summary</a>
         <a href="#extracted-criteria">Extracted Criteria</a>
+        <a href="#manual-review-section">Manual Review Queue</a>
         <a href="#bidder-evaluation">Bidder Evaluation</a>
         <a href="#audit-trail">Audit Trail</a>
       </nav>
@@ -45,6 +47,7 @@
           <div class="button-row">
             <button id="load-sample-btn" class="primary-btn">Load Sample Scenario</button>
             <button id="run-eval-btn" class="secondary-btn">Run Evaluation</button>
+            <button id="export-report-btn" class="secondary-btn" disabled>Export Evaluation Report</button>
             <button id="reset-btn" class="ghost-btn">Reset</button>
           </div>
 
@@ -84,6 +87,16 @@
           </div>
         </section>
 
+        <section id="portfolio-summary-section" class="panel anchor-panel">
+          <div class="section-head">
+            <h2>Portfolio Summary</h2>
+            <p>Consolidated bidder outcomes, criterion outcomes, and report readiness for officer sign-off.</p>
+          </div>
+          <div id="portfolio-summary" class="empty-state">
+            Run an evaluation to see consolidated bidder counts, criterion outcomes, and review volume.
+          </div>
+        </section>
+
         <section id="extracted-criteria" class="panel anchor-panel">
           <div class="section-head">
             <h2>Extracted Criteria</h2>
@@ -91,6 +104,16 @@
           </div>
           <div id="criteria-list" class="empty-state">
             No criteria available yet.
+          </div>
+        </section>
+
+        <section id="manual-review-section" class="panel wide-panel anchor-panel">
+          <div class="section-head">
+            <h2>Manual Review Queue</h2>
+            <p>Ambiguous evidence is escalated here with the exact criterion, document, and reason.</p>
+          </div>
+          <div id="manual-review-queue" class="empty-state">
+            Ambiguous criteria will appear here with the exact document and reason for human review.
           </div>
         </section>
 

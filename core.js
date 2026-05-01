@@ -90,6 +90,65 @@
     };
   }
 
+  function summarizeEvaluation(results) {
+    const portfolio = {
+      bidders: results.length,
+      overallEligible: 0,
+      overallNotEligible: 0,
+      overallReview: 0,
+      criterionEligible: 0,
+      criterionNotEligible: 0,
+      criterionReview: 0,
+      manualReviewQueue: [],
+    };
+
+    results.forEach((result) => {
+      if (result.overall === "Eligible") portfolio.overallEligible += 1;
+      if (result.overall === "Not Eligible") portfolio.overallNotEligible += 1;
+      if (result.overall === "Needs Manual Review") portfolio.overallReview += 1;
+
+      result.criteria.forEach((criterionResult) => {
+        if (criterionResult.verdict === "Eligible") portfolio.criterionEligible += 1;
+        if (criterionResult.verdict === "Not Eligible") portfolio.criterionNotEligible += 1;
+        if (criterionResult.verdict === "Needs Manual Review") {
+          portfolio.criterionReview += 1;
+          portfolio.manualReviewQueue.push({
+            bidderName: result.bidderName,
+            title: criterionResult.title,
+            reason: criterionResult.reason,
+            document: criterionResult.document,
+            evidence: criterionResult.evidence,
+          });
+        }
+      });
+    });
+
+    return portfolio;
+  }
+
+  function buildEvaluationReport(input) {
+    const summary = summarizeEvaluation(input.results);
+
+    return {
+      generatedAt: input.generatedAt || new Date().toISOString(),
+      tenderSource: input.tenderSource || "Unknown tender source",
+      criteriaExtracted: input.criteria.map((criterion) => ({
+        id: criterion.id,
+        title: criterion.title,
+        category: criterion.category,
+        mandatory: criterion.mandatory,
+        threshold: criterion.thresholdLabel,
+        evidenceNeeded: criterion.evidenceNeeded,
+        reviewTrigger: criterion.reviewTrigger,
+        source: criterion.source,
+      })),
+      summary,
+      bidderResults: input.results,
+      auditTrail: input.audit || [],
+      solutionScope: input.solutionScope || [],
+    };
+  }
+
   function evaluateCriterion(bidder, criterion) {
     switch (criterion.id) {
       case "FIN-001":
@@ -272,9 +331,11 @@
   }
 
   const api = {
+    buildEvaluationReport,
     extractCriteria,
     evaluateBidder,
     evaluateCriterion,
+    summarizeEvaluation,
   };
 
   if (typeof module !== "undefined" && module.exports) {

@@ -35,6 +35,13 @@ input {
   font: inherit;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+  transform: none;
+}
+
 .page-shell {
   max-width: 1400px;
   margin: 0 auto;
@@ -267,15 +274,23 @@ h2 {
 }
 
 .criteria-grid,
-.bidder-grid {
+.bidder-grid,
+.dashboard-grid,
+.queue-grid {
   display: grid;
   gap: 16px;
+}
+
+.dashboard-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .criterion-card,
 .bidder-card,
 .result-card,
-.audit-item {
+.audit-item,
+.summary-card,
+.queue-card {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -287,7 +302,8 @@ h2 {
 
 .criterion-top,
 .result-head,
-.bidder-header {
+.bidder-header,
+.queue-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -318,6 +334,22 @@ h2 {
 
 .criterion-title {
   margin: 14px 0 8px;
+}
+
+.summary-card,
+.queue-card {
+  padding: 18px;
+}
+
+.summary-card p,
+.queue-card p {
+  margin-bottom: 0;
+}
+
+.summary-value {
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: var(--ink);
 }
 
 .criterion-meta {
@@ -383,6 +415,16 @@ h2 {
   gap: 10px;
 }
 
+.queue-title {
+  margin: 12px 0 6px;
+  font-weight: 700;
+}
+
+.queue-reason,
+.queue-empty {
+  color: var(--muted);
+}
+
 .detail-box {
   padding: 10px 12px;
   border-radius: 14px;
@@ -431,6 +473,7 @@ h2 {
   .main-grid,
   .upload-grid,
   .status-strip,
+  .dashboard-grid,
   .criterion-meta,
   .result-detail-grid {
     grid-template-columns: 1fr;

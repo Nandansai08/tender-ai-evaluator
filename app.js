@@ -4,9 +4,10 @@ const state = {
   criteria: [],
   bidders: [],
   audit: [],
+  results: [],
 };
 
-const { extractCriteria, evaluateBidder } = window.TenderEvaluatorCore;
+const { buildEvaluationReport, extractCriteria, evaluateBidder, summarizeEvaluation } = window.TenderEvaluatorCore;
 
 const samplePaths = {
   tender: "./data/tender_sample.txt",
@@ -20,6 +21,7 @@ const samplePaths = {
 document.getElementById("load-sample-btn").addEventListener("click", loadSampleScenario);
 document.getElementById("run-eval-btn").addEventListener("click", runEvaluation);
 document.getElementById("reset-btn").addEventListener("click", resetApp);
+document.getElementById("export-report-btn").addEventListener("click", exportReport);
 document.getElementById("tender-file").addEventListener("change", handleTenderUpload);
 document.getElementById("bidder-files").addEventListener("change", handleBidderUploads);
 
@@ -57,6 +59,7 @@ function resetApp(clearInputs = true) {
   state.criteria = [];
   state.bidders = [];
   state.audit = [];
+  state.results = [];
 
   if (clearInputs) {
     document.getElementById("tender-file").value = "";
@@ -66,8 +69,13 @@ function resetApp(clearInputs = true) {
   document.getElementById("tender-summary").innerHTML =
     "Load sample data or upload a tender to view extracted criteria.";
   document.getElementById("criteria-list").innerHTML = "No criteria available yet.";
+  document.getElementById("portfolio-summary").innerHTML =
+    "Run an evaluation to see consolidated bidder counts, criterion outcomes, and review volume.";
+  document.getElementById("manual-review-queue").innerHTML =
+    "Ambiguous criteria will appear here with the exact document and reason for human review.";
   renderEvaluationPlaceholder("Run an evaluation to see bidder verdicts.");
   document.getElementById("audit-log").innerHTML = "No audit events yet.";
+  toggleReportActions(false);
   updateStatus();
 }
 
@@ -181,9 +189,12 @@ function runEvaluation() {
     state.criteria = extractCriteria(state.tenderText);
   }
 
-  const results = state.bidders.map((bidder) => evaluateBidder(bidder, state.criteria));
-  renderEvaluationResults(results);
-  pushAudit("Evaluation executed", `Completed criterion-level evaluation for ${results.length} bidders.`);
+  state.results = state.bidders.map((bidder) => evaluateBidder(bidder, state.criteria));
+  renderPortfolioSummary();
+  renderManualReviewQueue();
+  renderEvaluationResults(state.results);
+  pushAudit("Evaluation executed", `Completed criterion-level evaluation for ${state.results.length} bidders.`);
+  toggleReportActions(true);
 }
 
 function renderEvaluationPlaceholder(message) {
@@ -236,6 +247,94 @@ function renderEvaluationResults(results) {
   container.appendChild(grid);
 }
 
+function renderPortfolioSummary() {
+  const container = document.getElementById("portfolio-summary");
+  if (!state.results.length) {
+    container.textContent =
+      "Run an evaluation to see consolidated bidder counts, criterion outcomes, and review volume.";
+    return;
+  }
+
+  const summary = summarizeEvaluation(state.results);
+  container.innerHTML = `
+    <div class="dashboard-grid">
+      ${summaryCard("Bidder outcomes", `${summary.overallEligible} eligible / ${summary.overallNotEligible} not eligible / ${summary.overallReview} review`)}
+      ${summaryCard("Criterion outcomes", `${summary.criterionEligible} pass / ${summary.criterionNotEligible} fail / ${summary.criterionReview} review`)}
+      ${summaryCard("Manual review queue", `${summary.manualReviewQueue.length} criterion-level escalations`)}
+      ${summaryCard("Audit readiness", "Every verdict includes criterion, evidence, document, and decision logic.")}
+    </div>
+  `;
+}
+
+function renderManualReviewQueue() {
+  const container = document.getElementById("manual-review-queue");
+  if (!state.results.length) {
+    container.textContent =
+      "Ambiguous criteria will appear here with the exact document and reason for human review.";
+    return;
+  }
+
+  const summary = summarizeEvaluation(state.results);
+  if (!summary.manualReviewQueue.length) {
+    container.innerHTML = '<div class="queue-empty">No manual-review items in the current evaluation.</div>';
+    return;
+  }
+
+  const items = summary.manualReviewQueue
+    .map(
+      (item) => `
+        <article class="queue-card">
+          <div class="queue-top">
+            <div>
+              <p class="mini-label">Bidder</p>
+              <h3>${escapeHtml(item.bidderName)}</h3>
+            </div>
+            <span class="result-chip status-review">Needs Manual Review</span>
+          </div>
+          <p class="queue-title">${escapeHtml(item.title)}</p>
+          <p class="queue-reason">${escapeHtml(item.reason)}</p>
+          <div class="result-detail-grid">
+            ${detailBoxMarkup("Evidence", item.evidence)}
+            ${detailBoxMarkup("Source document", item.document)}
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  container.innerHTML = `<div class="queue-grid">${items}</div>`;
+}
+
+function toggleReportActions(enabled) {
+  document.getElementById("export-report-btn").disabled = !enabled;
+}
+
+function exportReport() {
+  if (!state.results.length) return;
+
+  const report = buildEvaluationReport({
+    tenderSource: state.tenderSource,
+    criteria: state.criteria,
+    results: state.results,
+    audit: state.audit,
+    solutionScope: [
+      "Representative mock-data prototype for Round 1 and sandboxed Round 2 evaluation.",
+      "Criterion-level explainability, manual-review routing, and audit logging implemented in the browser demo.",
+      "Full OCR and document-normalization pipeline for PDF, scans, Word files, and photographs remains a production extension.",
+    ],
+  });
+
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "tender-evaluation-report.json";
+  anchor.click();
+  URL.revokeObjectURL(url);
+
+  pushAudit("Evaluation report exported", "Generated structured JSON report for procurement review.");
+}
+
 function renderAudit() {
   const container = document.getElementById("audit-log");
   if (!state.audit.length) {
@@ -275,8 +374,12 @@ function detailPair(label, value) {
 function detailBox(label, value) {
   const box = document.createElement("div");
   box.className = "detail-box";
-  box.innerHTML = `<strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span>`;
+  box.innerHTML = detailBoxMarkup(label, value);
   return box;
+}
+
+function detailBoxMarkup(label, value) {
+  return `<strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span>`;
 }
 
 function metricPill(text) {
@@ -284,6 +387,15 @@ function metricPill(text) {
   pill.className = "metric-pill";
   pill.textContent = text;
   return pill;
+}
+
+function summaryCard(label, value) {
+  return `
+    <article class="summary-card">
+      <p class="mini-label">${escapeHtml(label)}</p>
+      <p class="summary-value">${escapeHtml(value)}</p>
+    </article>
+  `;
 }
 
 function statusClass(status) {
@@ -300,3 +412,5 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+toggleReportActions(false);
