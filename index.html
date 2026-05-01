@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Tender Evaluator</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Tender Evaluation Platform</p>
+          <h1>AI Tender Evaluator</h1>
+          <p class="hero-text">
+            An AI-assisted tender eligibility analysis with criterion extraction,
+            bidder evaluation, explainable verdicts, and manual-review escalation.
+          </p>
+        </div>
+        <div class="hero-card">
+          <p class="stat-label">Evaluation workflow</p>
+          <ol class="stat-list">
+            <li>Load tender and bidder documents</li>
+            <li>Extract structured eligibility criteria</li>
+            <li>Match evidence against each criterion</li>
+            <li>Return explainable verdicts</li>
+          </ol>
+        </div>
+      </header>
+
+      <nav class="section-nav" aria-label="Page sections">
+        <a href="#tender-snapshot">Tender Snapshot</a>
+        <a href="#extracted-criteria">Extracted Criteria</a>
+        <a href="#bidder-evaluation">Bidder Evaluation</a>
+        <a href="#audit-trail">Audit Trail</a>
+      </nav>
+
+      <main class="main-grid">
+        <section class="panel controls-panel">
+          <div class="section-head">
+            <h2>Demo Controls</h2>
+            <p>Use the sample dataset or upload your own plain-text tender and bidder JSON files.</p>
+          </div>
+
+          <div class="button-row">
+            <button id="load-sample-btn" class="primary-btn">Load Sample Scenario</button>
+            <button id="run-eval-btn" class="secondary-btn">Run Evaluation</button>
+            <button id="reset-btn" class="ghost-btn">Reset</button>
+          </div>
+
+          <div class="upload-grid">
+            <label class="upload-card">
+              <span class="upload-title">Tender Text</span>
+              <span class="upload-subtitle">Upload `.txt` file</span>
+              <input id="tender-file" type="file" accept=".txt,text/plain" />
+            </label>
+
+            <label class="upload-card">
+              <span class="upload-title">Bidder Files</span>
+              <span class="upload-subtitle">Upload one or more `.json` files</span>
+              <input id="bidder-files" type="file" accept=".json,application/json" multiple />
+            </label>
+          </div>
+
+          <div class="status-strip">
+            <div>
+              <p class="mini-label">Tender status</p>
+              <p id="tender-status" class="status-value">No tender loaded</p>
+            </div>
+            <div>
+              <p class="mini-label">Bidder status</p>
+              <p id="bidder-status" class="status-value">No bidder files loaded</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="tender-snapshot" class="panel anchor-panel">
+          <div class="section-head">
+            <h2>Tender Snapshot</h2>
+            <p>Extracted from the loaded tender document.</p>
+          </div>
+          <div id="tender-summary" class="empty-state">
+            Load sample data or upload a tender to view extracted criteria.
+          </div>
+        </section>
+
+        <section id="extracted-criteria" class="panel anchor-panel">
+          <div class="section-head">
+            <h2>Extracted Criteria</h2>
+            <p>Each criterion is normalized before bidder evaluation.</p>
+          </div>
+          <div id="criteria-list" class="empty-state">
+            No criteria available yet.
+          </div>
+        </section>
+
+        <section id="bidder-evaluation" class="panel wide-panel anchor-panel">
+          <div class="section-head">
+            <h2>Bidder Evaluation</h2>
+            <p>Criterion-level results with evidence and manual-review reasons.</p>
+          </div>
+          <div id="evaluation-results" class="empty-state">
+            Run an evaluation to see bidder verdicts.
+          </div>
+        </section>
+
+        <section id="audit-trail" class="panel wide-panel anchor-panel">
+          <div class="section-head">
+            <h2>Audit Trail</h2>
+            <p>Every automated step is logged for explainability.</p>
+          </div>
+          <div id="audit-log" class="empty-state">
+            No audit events yet.
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="criterion-template">
+      <article class="criterion-card">
+        <div class="criterion-top">
+          <span class="criterion-badge"></span>
+          <span class="criterion-tag"></span>
+        </div>
+        <h3 class="criterion-title"></h3>
+        <p class="criterion-source"></p>
+        <dl class="criterion-meta"></dl>
+      </article>
+    </template>
+
+    <template id="bidder-template">
+      <article class="bidder-card">
+        <div class="bidder-header">
+          <div>
+            <p class="mini-label">Bidder</p>
+            <h3 class="bidder-name"></h3>
+          </div>
+          <div class="overall-chip"></div>
+        </div>
+        <div class="bidder-metrics"></div>
+        <div class="criteria-results"></div>
+      </article>
+    </template>
+
+    <template id="result-template">
+      <div class="result-card">
+        <div class="result-head">
+          <h4 class="result-title"></h4>
+          <span class="result-chip"></span>
+        </div>
+        <p class="result-reason"></p>
+        <div class="result-detail-grid"></div>
+      </div>
+    </template>
+
+    <script src="./core.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "ai-tender-evaluator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-based tender evaluation and eligibility analysis platform.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/evaluator.test.js"
+  }
+}

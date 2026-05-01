@@ -1,0 +1,29 @@
+{
+  "bidderName": "Bravo Infra Works",
+  "documents": {
+    "turnover": {
+      "valueCrore": 4.1,
+      "confidence": 0.92,
+      "conflicting": false,
+      "document": "Audited_Financials_Bravo.pdf"
+    },
+    "projects": [
+      { "name": "Municipal Road Repair", "similarity": "medium", "completed": true },
+      { "name": "Boundary Wall Package", "similarity": "high", "completed": true },
+      { "name": "Drainage Rehabilitation", "similarity": "low", "completed": true }
+    ],
+    "gst": {
+      "present": true,
+      "valid": true,
+      "number": "07PQRSX9876L1Z2",
+      "document": "GST_Bravo.pdf"
+    },
+    "iso": {
+      "present": false,
+      "valid": false,
+      "confidence": 0,
+      "certificateId": "",
+      "document": ""
+    }
+  }
+}
