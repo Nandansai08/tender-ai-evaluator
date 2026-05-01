@@ -66,6 +66,35 @@ Then open [http://localhost:3000](http://localhost:3000).
 node tests/evaluator.test.js
 ```
 
+## Deploy to Azure
+
+The current app is already compatible with Azure App Service because `server.js` listens on `process.env.PORT`.
+
+### Recommended hosting option
+
+Use Azure App Service for the fastest path. This app is a simple Node.js web server, so it can run without refactoring.
+
+### One-time Azure setup
+
+1. Create a Web App in Azure App Service.
+2. Choose:
+   - Publish: `Code`
+   - Runtime stack: `Node 20 LTS` or newer
+   - Operating system: `Linux`
+3. After the app is created, download the publish profile from the Azure portal.
+4. In GitHub, add these repository secrets:
+   - `AZURE_WEBAPP_NAME`: your Azure Web App name
+   - `AZURE_WEBAPP_PUBLISH_PROFILE`: the full publish profile XML
+
+### Continuous deployment
+
+This repository includes a GitHub Actions workflow at `.github/workflows/azure-webapp.yml`.
+
+After the two secrets are added, every push to `main` will:
+
+- run `node tests/evaluator.test.js`
+- deploy the app to Azure App Service
+
 ## Demo flow
 
 1. Open the app.
