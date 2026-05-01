@@ -6,5 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node tests/evaluator.test.js"
+  },
+  "dependencies": {
+    "@azure/ai-form-recognizer": "^5.1.0"
   }
 }

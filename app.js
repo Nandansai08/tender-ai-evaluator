@@ -18,12 +18,118 @@ const samplePaths = {
   ],
 };
 
+const fallbackScenario = {
+  tenderText: `CRPF Representative Tender - Construction Services
+
+Clause 4.2 Financial Eligibility
+The bidder must demonstrate a minimum annual turnover of INR 5 crore based on certified financial statements.
+
+Clause 4.3 Technical Eligibility
+The bidder must have completed at least 3 similar projects completed in the last 5 years.
+
+Clause 5.1 Compliance Requirements
+The bidder shall submit a valid GST registration certificate.
+
+Clause 5.2 Quality Certification
+The bidder shall submit a valid ISO 9001 certification.`,
+  bidders: [
+    {
+      bidderName: "Alpha Builders Pvt Ltd",
+      documents: {
+        turnover: {
+          valueCrore: 6.4,
+          confidence: 0.95,
+          conflicting: false,
+          document: "CA_Certificate_Alpha.pdf",
+        },
+        projects: [
+          { name: "District Barracks Upgrade", similarity: "high", completed: true },
+          { name: "Training Campus Expansion", similarity: "high", completed: true },
+          { name: "Police Housing Block", similarity: "high", completed: true },
+        ],
+        gst: {
+          present: true,
+          valid: true,
+          number: "29ABCDE1234F1Z5",
+          document: "GST_Alpha.pdf",
+        },
+        iso: {
+          present: true,
+          valid: true,
+          confidence: 0.94,
+          certificateId: "ISO-ALPHA-9001",
+          document: "ISO_Alpha.jpg",
+        },
+      },
+    },
+    {
+      bidderName: "Bravo Infra Works",
+      documents: {
+        turnover: {
+          valueCrore: 4.1,
+          confidence: 0.92,
+          conflicting: false,
+          document: "Audited_Financials_Bravo.pdf",
+        },
+        projects: [
+          { name: "Municipal Road Repair", similarity: "medium", completed: true },
+          { name: "Boundary Wall Package", similarity: "high", completed: true },
+          { name: "Drainage Rehabilitation", similarity: "low", completed: true },
+        ],
+        gst: {
+          present: true,
+          valid: true,
+          number: "07PQRSX9876L1Z2",
+          document: "GST_Bravo.pdf",
+        },
+        iso: {
+          present: false,
+          valid: false,
+          confidence: 0,
+          certificateId: "",
+          document: "",
+        },
+      },
+    },
+    {
+      bidderName: "Civic Structures Consortium",
+      documents: {
+        turnover: {
+          valueCrore: 5.8,
+          confidence: 0.58,
+          conflicting: true,
+          document: "Scanned_Turnover_Certificate_Civic.jpg",
+        },
+        projects: [
+          { name: "Security Compound Construction", similarity: "high", completed: true },
+          { name: "Transit Camp Buildout", similarity: "medium", completed: true },
+          { name: "Storage Depot Shed", similarity: "high", completed: true },
+        ],
+        gst: {
+          present: true,
+          valid: false,
+          number: "GST number partially visible",
+          document: "GST_Civic_scan.jpg",
+        },
+        iso: {
+          present: true,
+          valid: true,
+          confidence: 0.62,
+          certificateId: "ISO-CIVIC-9001",
+          document: "ISO_Civic_scan.jpg",
+        },
+      },
+    },
+  ],
+};
+
 document.getElementById("load-sample-btn").addEventListener("click", loadSampleScenario);
 document.getElementById("run-eval-btn").addEventListener("click", runEvaluation);
 document.getElementById("reset-btn").addEventListener("click", resetApp);
 document.getElementById("export-report-btn").addEventListener("click", exportReport);
 document.getElementById("tender-file").addEventListener("change", handleTenderUpload);
 document.getElementById("bidder-files").addEventListener("change", handleBidderUploads);
+document.getElementById("document-ai-file").addEventListener("change", handleDocumentAiUpload);
 
 function pushAudit(event, detail) {
   state.audit.push({
@@ -35,22 +141,44 @@ function pushAudit(event, detail) {
 }
 
 async function loadSampleScenario() {
-  resetApp(false);
+  try {
+    resetApp(false);
 
-  const [tenderResponse, ...bidderResponses] = await Promise.all([
-    fetch(samplePaths.tender),
-    ...samplePaths.bidders.map((path) => fetch(path)),
-  ]);
+    const [tenderResponse, ...bidderResponses] = await Promise.all([
+      fetch(samplePaths.tender),
+      ...samplePaths.bidders.map((path) => fetch(path)),
+    ]);
 
-  state.tenderText = await tenderResponse.text();
-  state.tenderSource = "tender_sample.txt";
-  state.bidders = await Promise.all(bidderResponses.map((response) => response.json()));
+    const failedResponse = [tenderResponse, ...bidderResponses].find((response) => !response.ok);
+    if (failedResponse) {
+      throw new Error(`Could not load ${failedResponse.url || "sample data"}`);
+    }
 
-  updateStatus();
-  pushAudit("Sample dataset loaded", "Loaded tender_sample.txt and 3 bidder files.");
-  renderTenderSummary();
-  renderCriteria();
-  renderEvaluationPlaceholder("Sample dataset loaded. Click Run Evaluation.");
+    state.tenderText = await tenderResponse.text();
+    state.tenderSource = "tender_sample.txt";
+    const bidders = await Promise.all(bidderResponses.map((response) => response.json()));
+    state.bidders = await Promise.all(
+      bidders.map((bidder, index) => normalizeBidderEvidence(bidder, samplePaths.bidders[index])),
+    );
+
+    updateStatus();
+    pushAudit("Mock CRPF scenario loaded", "Loaded tender_sample.txt and 3 bidder evidence files.");
+    await extractAndRenderCriteria("Mock CRPF scenario tender");
+    renderCriteria();
+    renderEvaluationPlaceholder("Mock CRPF scenario loaded. Run the evaluation to generate verdicts.");
+  } catch (error) {
+    state.tenderText = fallbackScenario.tenderText;
+    state.tenderSource = "embedded_mock_crpf_scenario";
+    state.bidders = await Promise.all(
+      fallbackScenario.bidders.map((bidder) => normalizeBidderEvidence(bidder, bidder.bidderName)),
+    );
+
+    updateStatus();
+    pushAudit("Mock CRPF scenario loaded", `Used embedded scenario because file loading failed: ${error.message}`);
+    await extractAndRenderCriteria("Embedded mock CRPF scenario");
+    renderCriteria();
+    renderEvaluationPlaceholder("Mock CRPF scenario loaded. Run the evaluation to generate verdicts.");
+  }
 }
 
 function resetApp(clearInputs = true) {
@@ -67,12 +195,17 @@ function resetApp(clearInputs = true) {
   }
 
   document.getElementById("tender-summary").innerHTML =
-    "Load sample data or upload a tender to view extracted criteria.";
+    "Load the mock CRPF scenario or upload a tender to view extracted criteria.";
   document.getElementById("criteria-list").innerHTML = "No criteria available yet.";
-  document.getElementById("portfolio-summary").innerHTML =
-    "Run an evaluation to see consolidated bidder counts, criterion outcomes, and review volume.";
-  document.getElementById("manual-review-queue").innerHTML =
-    "Ambiguous criteria will appear here with the exact document and reason for human review.";
+  setHtmlIfPresent(
+    "portfolio-summary",
+    "Run an evaluation to see consolidated bidder counts, criterion outcomes, and review volume.",
+  );
+  setHtmlIfPresent(
+    "manual-review-queue",
+    "Ambiguous criteria will appear here with the exact document and reason for human review.",
+  );
+  setHtmlIfPresent("document-ai-result", "Upload a document to see extracted OCR and layout details.");
   renderEvaluationPlaceholder("Run an evaluation to see bidder verdicts.");
   document.getElementById("audit-log").innerHTML = "No audit events yet.";
   toggleReportActions(false);
@@ -87,7 +220,7 @@ async function handleTenderUpload(event) {
   state.tenderSource = file.name;
   pushAudit("Tender uploaded", `Loaded tender file ${file.name}.`);
   updateStatus();
-  renderTenderSummary();
+  await extractAndRenderCriteria(file.name);
   renderCriteria();
 }
 
@@ -98,12 +231,56 @@ async function handleBidderUploads(event) {
   state.bidders = [];
   for (const file of files) {
     const content = await file.text();
-    state.bidders.push(JSON.parse(content));
+    const parsedBidder = JSON.parse(content);
+    const normalized = await normalizeBidderEvidence(parsedBidder, file.name);
+    state.bidders.push(normalized);
   }
 
   pushAudit("Bidder files uploaded", `Loaded ${files.length} bidder submission files.`);
   updateStatus();
   renderEvaluationPlaceholder("Bidder files loaded. Click Run Evaluation.");
+}
+
+async function handleDocumentAiUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const resultContainer = document.getElementById("document-ai-result");
+  resultContainer.textContent = `Analyzing ${file.name} with Azure AI Document Intelligence...`;
+
+  try {
+    const response = await fetch("/api/analyze-document", {
+      method: "POST",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+        "X-Document-Name": encodeURIComponent(file.name),
+      },
+      body: file,
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || payload.error || "Document analysis failed.");
+    }
+
+    renderDocumentAiResult(file.name, payload);
+    pushAudit(
+      "AI document extraction completed",
+      `Analyzed ${file.name}: ${payload.pageCount} page(s), ${payload.tableCount} table(s).`,
+    );
+  } catch (error) {
+    const message =
+      error instanceof TypeError && error.message === "Failed to fetch"
+        ? "Could not reach the TenderWiseAi backend. Start the Node server with `node server.js`, or deploy/push the backend changes to Azure first."
+        : error.message;
+    resultContainer.innerHTML = `
+      <div class="error-box">
+        <strong>Document analysis failed</strong>
+        <span>${escapeHtml(message)}</span>
+      </div>
+    `;
+    pushAudit("AI document extraction failed", message);
+  }
 }
 
 function updateStatus() {
@@ -117,8 +294,6 @@ function updateStatus() {
 
 function renderTenderSummary() {
   if (!state.tenderText) return;
-
-  state.criteria = extractCriteria(state.tenderText);
 
   const summary = document.getElementById("tender-summary");
   const totalMandatory = state.criteria.filter((criterion) => criterion.mandatory).length;
@@ -146,6 +321,59 @@ function renderTenderSummary() {
   `;
 
   pushAudit("Criteria extracted", `Normalized ${state.criteria.length} criteria from tender.`);
+}
+
+async function extractAndRenderCriteria(source) {
+  try {
+    const response = await fetch("/api/ai/extract-criteria", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: state.tenderText,
+        source,
+      }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.detail || payload.error || "AI extraction failed.");
+    }
+
+    state.criteria = payload.criteria && payload.criteria.length ? payload.criteria : extractCriteria(state.tenderText);
+    pushAudit(
+      payload.mode === "azure_openai" ? "AI criteria extraction completed" : "Rule criteria extraction completed",
+      `Extracted ${state.criteria.length} criteria from ${source}.`,
+    );
+  } catch (error) {
+    state.criteria = extractCriteria(state.tenderText);
+    pushAudit("Criteria extraction fallback used", error.message);
+  }
+
+  renderTenderSummary();
+}
+
+async function normalizeBidderEvidence(evidence, source) {
+  try {
+    const response = await fetch("/api/ai/normalize-bidder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ evidence, source }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.detail || payload.error || "AI normalization failed.");
+    }
+
+    pushAudit(
+      payload.mode === "azure_openai" ? "AI bidder evidence normalized" : "Structured bidder evidence loaded",
+      `Prepared bidder evidence from ${source}.`,
+    );
+    return payload.bidder || evidence;
+  } catch (error) {
+    pushAudit("Bidder evidence fallback used", `${source}: ${error.message}`);
+    return evidence;
+  }
 }
 
 function renderCriteria() {
@@ -305,8 +533,31 @@ function renderManualReviewQueue() {
   container.innerHTML = `<div class="queue-grid">${items}</div>`;
 }
 
+function renderDocumentAiResult(fileName, payload) {
+  const preview = payload.content ? payload.content.slice(0, 700) : "No text content returned.";
+  const container = document.getElementById("document-ai-result");
+
+  container.innerHTML = `
+    <div class="document-result">
+      <div class="dashboard-grid">
+        ${summaryCard("File", fileName)}
+        ${summaryCard("Pages", String(payload.pageCount))}
+        ${summaryCard("Tables", String(payload.tableCount))}
+        ${summaryCard("Paragraphs", String(payload.paragraphCount))}
+      </div>
+      <div class="ocr-preview">
+        <p class="mini-label">Extracted text preview</p>
+        <pre>${escapeHtml(preview)}</pre>
+      </div>
+    </div>
+  `;
+}
+
 function toggleReportActions(enabled) {
-  document.getElementById("export-report-btn").disabled = !enabled;
+  const button = document.getElementById("export-report-btn");
+  if (button) {
+    button.disabled = !enabled;
+  }
 }
 
 function exportReport() {
@@ -396,6 +647,13 @@ function summaryCard(label, value) {
       <p class="summary-value">${escapeHtml(value)}</p>
     </article>
   `;
+}
+
+function setHtmlIfPresent(id, html) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.innerHTML = html;
+  }
 }
 
 function statusClass(status) {
