@@ -8,6 +8,7 @@ const state = {
 };
 
 const { buildEvaluationReport, extractCriteria, evaluateBidder, summarizeEvaluation } = window.TenderEvaluatorCore;
+const API_BASE_URL = "http://localhost:3000";
 
 const samplePaths = {
   tender: "./data/tender_sample.txt",
@@ -17,6 +18,8 @@ const samplePaths = {
     "./data/bidders/civic_structures.json",
   ],
 };
+
+const MAX_DOCUMENT_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 const fallbackScenario = {
   tenderText: `CRPF Representative Tender - Construction Services
@@ -124,12 +127,11 @@ The bidder shall submit a valid ISO 9001 certification.`,
 };
 
 document.getElementById("load-sample-btn").addEventListener("click", loadSampleScenario);
-document.getElementById("run-eval-btn").addEventListener("click", runEvaluation);
+document.getElementById("run-eval-btn").addEventListener("click", () => runEvaluation());
 document.getElementById("reset-btn").addEventListener("click", resetApp);
 document.getElementById("export-report-btn").addEventListener("click", exportReport);
 document.getElementById("tender-file").addEventListener("change", handleTenderUpload);
 document.getElementById("bidder-files").addEventListener("change", handleBidderUploads);
-document.getElementById("document-ai-file").addEventListener("change", handleDocumentAiUpload);
 
 function pushAudit(event, detail) {
   state.audit.push({
@@ -165,7 +167,7 @@ async function loadSampleScenario() {
     pushAudit("Mock CRPF scenario loaded", "Loaded tender_sample.txt and 3 bidder evidence files.");
     await extractAndRenderCriteria("Mock CRPF scenario tender");
     renderCriteria();
-    renderEvaluationPlaceholder("Mock CRPF scenario loaded. Run the evaluation to generate verdicts.");
+    runEvaluation("Mock CRPF scenario evaluated");
   } catch (error) {
     state.tenderText = fallbackScenario.tenderText;
     state.tenderSource = "embedded_mock_crpf_scenario";
@@ -177,7 +179,7 @@ async function loadSampleScenario() {
     pushAudit("Mock CRPF scenario loaded", `Used embedded scenario because file loading failed: ${error.message}`);
     await extractAndRenderCriteria("Embedded mock CRPF scenario");
     renderCriteria();
-    renderEvaluationPlaceholder("Mock CRPF scenario loaded. Run the evaluation to generate verdicts.");
+    runEvaluation("Mock CRPF scenario evaluated");
   }
 }
 
@@ -205,7 +207,6 @@ function resetApp(clearInputs = true) {
     "manual-review-queue",
     "Ambiguous criteria will appear here with the exact document and reason for human review.",
   );
-  setHtmlIfPresent("document-ai-result", "Upload a document to see extracted OCR and layout details.");
   renderEvaluationPlaceholder("Run an evaluation to see bidder verdicts.");
   document.getElementById("audit-log").innerHTML = "No audit events yet.";
   toggleReportActions(false);
@@ -216,12 +217,18 @@ async function handleTenderUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  state.tenderText = await file.text();
-  state.tenderSource = file.name;
-  pushAudit("Tender uploaded", `Loaded tender file ${file.name}.`);
-  updateStatus();
-  await extractAndRenderCriteria(file.name);
-  renderCriteria();
+  try {
+    state.tenderText = await readTenderText(file);
+    state.tenderSource = file.name;
+    pushAudit("Tender uploaded", `Loaded tender document ${file.name}.`);
+    updateStatus();
+    await extractAndRenderCriteria(file.name);
+    renderCriteria();
+  } catch (error) {
+    pushAudit("Tender upload failed", `${file.name}: ${error.message}`);
+    renderTenderRejection(file.name, error.message);
+    renderEvaluationPlaceholder(`Tender upload failed: ${error.message}`);
+  }
 }
 
 async function handleBidderUploads(event) {
@@ -229,67 +236,194 @@ async function handleBidderUploads(event) {
   if (!files.length) return;
 
   state.bidders = [];
-  for (const file of files) {
-    const content = await file.text();
-    const parsedBidder = JSON.parse(content);
-    const normalized = await normalizeBidderEvidence(parsedBidder, file.name);
-    state.bidders.push(normalized);
-  }
-
-  pushAudit("Bidder files uploaded", `Loaded ${files.length} bidder submission files.`);
-  updateStatus();
-  renderEvaluationPlaceholder("Bidder files loaded. Click Run Evaluation.");
-}
-
-async function handleDocumentAiUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const resultContainer = document.getElementById("document-ai-result");
-  resultContainer.textContent = `Analyzing ${file.name} with Azure AI Document Intelligence...`;
-
   try {
-    const response = await fetch("/api/analyze-document", {
-      method: "POST",
-      headers: {
-        "Content-Type": file.type || "application/octet-stream",
-        "X-Document-Name": encodeURIComponent(file.name),
-      },
-      body: file,
-    });
-
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.detail || payload.error || "Document analysis failed.");
+    for (const file of files) {
+      const evidence = await readBidderEvidence(file);
+      const normalized = await normalizeBidderEvidence(evidence, file.name);
+      if (!normalized) {
+        throw new Error(`${file.name} could not be normalized into bidder evidence.`);
+      }
+      state.bidders.push(normalized);
     }
 
-    renderDocumentAiResult(file.name, payload);
-    pushAudit(
-      "AI document extraction completed",
-      `Analyzed ${file.name}: ${payload.pageCount} page(s), ${payload.tableCount} table(s).`,
-    );
+    pushAudit("Bidder files uploaded", `Loaded ${files.length} bidder evidence file(s).`);
+    updateStatus();
+    renderEvaluationPlaceholder("Bidder evidence loaded. Click Run Evaluation.");
   } catch (error) {
-    const message =
-      error instanceof TypeError && error.message === "Failed to fetch"
-        ? "Could not reach the TenderWiseAi backend. Start the Node server with `node server.js`, or deploy/push the backend changes to Azure first."
-        : error.message;
-    resultContainer.innerHTML = `
-      <div class="error-box">
-        <strong>Document analysis failed</strong>
-        <span>${escapeHtml(message)}</span>
-      </div>
-    `;
-    pushAudit("AI document extraction failed", message);
+    pushAudit("Bidder upload failed", error.message);
+    renderEvaluationPlaceholder(`Bidder upload failed: ${error.message}`);
   }
 }
 
 function updateStatus() {
-  document.getElementById("tender-status").textContent = state.tenderSource
-    ? `${state.tenderSource} loaded`
+  const tenderLabel = state.tenderSource === "embedded_mock_crpf_scenario" ? "Mock CRPF scenario" : state.tenderSource;
+  document.getElementById("tender-status").textContent = tenderLabel
+    ? `${tenderLabel} loaded`
     : "No tender loaded";
   document.getElementById("bidder-status").textContent = state.bidders.length
-    ? `${state.bidders.length} bidder file(s) loaded`
+    ? `${state.bidders.length} bidder submission(s) loaded`
     : "No bidder files loaded";
+}
+
+async function readTenderText(file) {
+  if (isTextFile(file)) {
+    const text = await file.text();
+    await assertDocumentType(text, file.name, "tender");
+    return text;
+  }
+
+  const analysis = await analyzeDocumentFile(file);
+  await assertDocumentType(analysis.content || "", file.name, "tender");
+  pushAudit(
+    "Tender OCR completed",
+    `Extracted ${analysis.pageCount} page(s) and ${analysis.tableCount} table(s) from ${file.name}.`,
+  );
+  return analysis.content || "";
+}
+
+async function readBidderEvidence(file) {
+  if (isJsonFile(file)) {
+    return JSON.parse(await file.text());
+  }
+
+  if (isTextFile(file)) {
+    const text = await file.text();
+    await assertDocumentType(text, file.name, "bidder", true);
+    return text;
+  }
+
+  const analysis = await analyzeDocumentFile(file);
+  await assertDocumentType(analysis.content || "", file.name, "bidder", true);
+  pushAudit(
+    "Bidder OCR completed",
+    `Extracted ${analysis.pageCount} page(s) and ${analysis.tableCount} table(s) from ${file.name}.`,
+  );
+  return analysis.content || "";
+}
+
+async function assertDocumentType(text, source, expectedType, allowOtherAsReview = false) {
+  const classification = await classifyDocumentText(text, source);
+
+  if (classification.documentType === expectedType && classification.confidence >= 0.5) {
+    pushAudit(
+      "Document classified",
+      `${source} classified as ${classification.documentType} (${Math.round(classification.confidence * 100)}%): ${classification.reason}`,
+    );
+    return classification;
+  }
+
+  if (allowOtherAsReview && classification.documentType === "other") {
+    pushAudit(
+      "Bidder document needs review",
+      `${source} could not be confidently classified as bidder evidence: ${classification.reason}`,
+    );
+    return classification;
+  }
+
+  throw new Error(
+    `${source} does not look like a ${expectedType} document. Classified as ${classification.documentType} (${Math.round(
+      classification.confidence * 100,
+    )}%): ${classification.reason}`,
+  );
+}
+
+async function classifyDocumentText(text, source) {
+  const response = await fetch(apiUrl("/api/ai/classify-document"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, source }),
+  });
+
+  const payload = await readApiPayload(response);
+  if (!response.ok) {
+    throw new Error(payload.detail || payload.error || "Document classification failed.");
+  }
+
+  return payload;
+}
+
+async function analyzeDocumentFile(file) {
+  if (file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
+    throw new Error(`${file.name} is ${formatBytes(file.size)}. Upload documents must be 50 MB or smaller.`);
+  }
+
+  let response;
+  try {
+    response = await uploadDocumentWithFetch(file);
+  } catch (error) {
+    try {
+      response = await uploadDocumentWithXhr(file);
+    } catch (xhrError) {
+      throw new Error(
+        `Could not reach the local document-analysis API while uploading ${formatBytes(file.size)}. Restart the server with \`node server.js\`, then refresh this page. Browser error: ${xhrError.message}`,
+      );
+    }
+  }
+
+  const payload = await readApiPayload(response);
+  if (!response.ok) {
+    throw new Error(payload.detail || payload.error || "Document analysis failed.");
+  }
+
+  if (!payload.content) {
+    throw new Error("Document Intelligence returned no text content.");
+  }
+
+  return payload;
+}
+
+async function uploadDocumentWithFetch(file) {
+  const formData = new FormData();
+  formData.append("document", file, file.name);
+
+  return fetch(apiUrl("/api/analyze-document"), {
+    method: "POST",
+    body: formData,
+  });
+}
+
+async function uploadDocumentWithXhr(file) {
+  const formData = new FormData();
+  formData.append("document", file, file.name);
+
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", apiUrl("/api/analyze-document"));
+    request.responseType = "text";
+    request.timeout = 180000;
+
+    request.addEventListener("load", () => {
+      resolve({
+        ok: request.status >= 200 && request.status < 300,
+        status: request.status,
+        text: async () => request.responseText || "",
+      });
+    });
+
+    request.addEventListener("error", () => reject(new Error("XMLHttpRequest network error.")));
+    request.addEventListener("timeout", () => reject(new Error("XMLHttpRequest timed out.")));
+    request.addEventListener("abort", () => reject(new Error("XMLHttpRequest was aborted.")));
+    request.send(formData);
+  });
+}
+
+function formatBytes(bytes) {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function isJsonFile(file) {
+  return file.type === "application/json" || file.name.toLowerCase().endsWith(".json");
+}
+
+function isTextFile(file) {
+  return file.type.startsWith("text/") || file.name.toLowerCase().endsWith(".txt");
 }
 
 function renderTenderSummary() {
@@ -323,9 +457,26 @@ function renderTenderSummary() {
   pushAudit("Criteria extracted", `Normalized ${state.criteria.length} criteria from tender.`);
 }
 
+function renderTenderRejection(fileName, message) {
+  const summary = document.getElementById("tender-summary");
+  summary.innerHTML = `
+    <div class="tender-rejection">
+      <div class="queue-top">
+        <div>
+          <p class="mini-label">Document check</p>
+          <h3>${escapeHtml(fileName)}</h3>
+        </div>
+        <span class="result-chip status-ineligible">Not a Tender</span>
+      </div>
+      <p class="queue-title">Tender validation failed</p>
+      <p class="queue-reason">${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
 async function extractAndRenderCriteria(source) {
   try {
-    const response = await fetch("/api/ai/extract-criteria", {
+    const response = await fetch(apiUrl("/api/ai/extract-criteria"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -333,15 +484,19 @@ async function extractAndRenderCriteria(source) {
         source,
       }),
     });
-    const payload = await response.json();
+    const payload = await readApiPayload(response);
 
     if (!response.ok) {
       throw new Error(payload.detail || payload.error || "AI extraction failed.");
     }
 
+    if (payload.mode === "rejected_document") {
+      throw new Error(payload.note || "The uploaded document does not look like a tender.");
+    }
+
     state.criteria = payload.criteria && payload.criteria.length ? payload.criteria : extractCriteria(state.tenderText);
     pushAudit(
-      payload.mode === "azure_openai" ? "AI criteria extraction completed" : "Rule criteria extraction completed",
+      isAiProviderMode(payload.mode) ? "AI criteria extraction completed" : "Rule criteria extraction completed",
       `Extracted ${state.criteria.length} criteria from ${source}.`,
     );
   } catch (error) {
@@ -353,20 +508,34 @@ async function extractAndRenderCriteria(source) {
 }
 
 async function normalizeBidderEvidence(evidence, source) {
+  if (isStructuredBidderEvidence(evidence)) {
+    pushAudit("Structured bidder evidence loaded", `Prepared bidder evidence from ${source}.`);
+    return evidence;
+  }
+
+  if (typeof evidence === "string") {
+    pushAudit("Bidder OCR text loaded", `Prepared extracted bidder text from ${source}.`);
+    return {
+      bidderName: source.replace(/\.[^.]+$/, ""),
+      sourceDocument: source,
+      extractedText: evidence,
+    };
+  }
+
   try {
-    const response = await fetch("/api/ai/normalize-bidder", {
+    const response = await fetch(apiUrl("/api/ai/normalize-bidder"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ evidence, source }),
     });
-    const payload = await response.json();
+    const payload = await readApiPayload(response);
 
     if (!response.ok) {
       throw new Error(payload.detail || payload.error || "AI normalization failed.");
     }
 
     pushAudit(
-      payload.mode === "azure_openai" ? "AI bidder evidence normalized" : "Structured bidder evidence loaded",
+      isAiProviderMode(payload.mode) ? "AI bidder evidence normalized" : "Structured bidder evidence loaded",
       `Prepared bidder evidence from ${source}.`,
     );
     return payload.bidder || evidence;
@@ -374,6 +543,19 @@ async function normalizeBidderEvidence(evidence, source) {
     pushAudit("Bidder evidence fallback used", `${source}: ${error.message}`);
     return evidence;
   }
+}
+
+function isStructuredBidderEvidence(evidence) {
+  return Boolean(
+    evidence &&
+      typeof evidence === "object" &&
+      evidence.bidderName &&
+      evidence.documents &&
+      evidence.documents.turnover &&
+      Array.isArray(evidence.documents.projects) &&
+      evidence.documents.gst &&
+      evidence.documents.iso,
+  );
 }
 
 function renderCriteria() {
@@ -407,9 +589,14 @@ function renderCriteria() {
   container.appendChild(grid);
 }
 
-function runEvaluation() {
+async function runEvaluation(auditEvent = "Evaluation executed") {
   if (!state.tenderText || !state.bidders.length) {
     renderEvaluationPlaceholder("Load one tender and at least one bidder file before evaluation.");
+    return;
+  }
+
+  if (state.bidders.some((bidder) => bidder.extractedText)) {
+    await runAiEvaluation(auditEvent);
     return;
   }
 
@@ -421,8 +608,56 @@ function runEvaluation() {
   renderPortfolioSummary();
   renderManualReviewQueue();
   renderEvaluationResults(state.results);
-  pushAudit("Evaluation executed", `Completed criterion-level evaluation for ${state.results.length} bidders.`);
+  pushAudit(auditEvent, `Completed criterion-level evaluation for ${state.results.length} bidders.`);
   toggleReportActions(true);
+}
+
+async function runAiEvaluation(auditEvent) {
+  renderEvaluationPlaceholder("Evaluating tender and bidder OCR with Amazon Bedrock...");
+
+  try {
+    const response = await fetch(apiUrl("/api/ai/evaluate-bidders"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenderText: state.tenderText,
+        tenderSource: state.tenderSource,
+        bidders: state.bidders.map((bidder) => ({
+          bidderName: bidder.bidderName,
+          sourceDocument: bidder.sourceDocument || bidder.bidderName,
+          extractedText: bidder.extractedText || JSON.stringify(bidder, null, 2),
+        })),
+      }),
+    });
+
+    const payload = await readApiPayload(response);
+    if (!response.ok) {
+      throw new Error(payload.detail || payload.error || "AI bidder evaluation failed.");
+    }
+
+    state.criteria = payload.criteria && payload.criteria.length ? payload.criteria : state.criteria;
+    state.results = payload.results || [];
+    renderCriteria();
+    renderPortfolioSummary();
+    renderManualReviewQueue();
+    renderEvaluationResults(state.results);
+    pushAudit(
+      "Amazon Bedrock evaluation completed",
+      `Evaluated ${state.results.length} bidder submission(s) from OCR text.`,
+    );
+    toggleReportActions(true);
+  } catch (error) {
+    renderEvaluationPlaceholder(`Amazon Bedrock evaluation failed: ${escapeHtml(error.message)}`);
+    pushAudit("Amazon Bedrock evaluation failed", error.message);
+    if (state.bidders.every((bidder) => isStructuredBidderEvidence(bidder))) {
+      state.results = state.bidders.map((bidder) => evaluateBidder(bidder, state.criteria));
+      renderPortfolioSummary();
+      renderManualReviewQueue();
+      renderEvaluationResults(state.results);
+      pushAudit(auditEvent, `Completed fallback rule evaluation for ${state.results.length} bidders.`);
+      toggleReportActions(true);
+    }
+  }
 }
 
 function renderEvaluationPlaceholder(message) {
@@ -533,26 +768,6 @@ function renderManualReviewQueue() {
   container.innerHTML = `<div class="queue-grid">${items}</div>`;
 }
 
-function renderDocumentAiResult(fileName, payload) {
-  const preview = payload.content ? payload.content.slice(0, 700) : "No text content returned.";
-  const container = document.getElementById("document-ai-result");
-
-  container.innerHTML = `
-    <div class="document-result">
-      <div class="dashboard-grid">
-        ${summaryCard("File", fileName)}
-        ${summaryCard("Pages", String(payload.pageCount))}
-        ${summaryCard("Tables", String(payload.tableCount))}
-        ${summaryCard("Paragraphs", String(payload.paragraphCount))}
-      </div>
-      <div class="ocr-preview">
-        <p class="mini-label">Extracted text preview</p>
-        <pre>${escapeHtml(preview)}</pre>
-      </div>
-    </div>
-  `;
-}
-
 function toggleReportActions(enabled) {
   const button = document.getElementById("export-report-btn");
   if (button) {
@@ -653,6 +868,30 @@ function setHtmlIfPresent(id, html) {
   const element = document.getElementById(id);
   if (element) {
     element.innerHTML = html;
+  }
+}
+
+function apiUrl(path) {
+  return `${API_BASE_URL}${path}`;
+}
+
+function isAiProviderMode(mode) {
+  return mode === "bedrock";
+}
+
+async function readApiPayload(response) {
+  const text = await response.text();
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return {
+      error: response.ok ? "The server returned an invalid JSON response." : "API endpoint was not found.",
+      detail: text,
+    };
   }
 }
 

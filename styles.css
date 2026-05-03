@@ -276,27 +276,17 @@ h2 {
   background: #f8fafc;
 }
 
-.document-ai-panel {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  align-items: start;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-}
-
-.document-ai-panel .empty-state,
-.document-result {
-  grid-column: 1 / -1;
-}
-
 .empty-state {
   padding: 28px;
   border: 1px dashed var(--line);
   border-radius: 18px;
   color: var(--muted);
   background: #f8fafc;
+}
+
+.tender-rejection {
+  display: grid;
+  gap: 12px;
 }
 
 .criteria-grid,
@@ -451,28 +441,6 @@ h2 {
   color: var(--muted);
 }
 
-.ocr-preview {
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: #fff;
-}
-
-.ocr-preview pre {
-  max-height: 220px;
-  margin: 0;
-  overflow: auto;
-  white-space: pre-wrap;
-  color: var(--ink);
-}
-
-.error-box {
-  display: grid;
-  gap: 6px;
-  color: var(--danger);
-}
-
 .detail-box {
   padding: 10px 12px;
   border-radius: 14px;
@@ -520,7 +488,6 @@ h2 {
   .app-header,
   .main-grid,
   .intake-grid,
-  .document-ai-panel,
   .upload-grid,
   .status-strip,
   .dashboard-grid,

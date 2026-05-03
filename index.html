@@ -49,15 +49,15 @@
           <div class="intake-grid">
             <div class="upload-grid">
               <label class="upload-card">
-                <span class="upload-title">Tender Text</span>
-                <span class="upload-subtitle">Accepted: `.txt`</span>
-                <input id="tender-file" type="file" accept=".txt,text/plain" />
+                <span class="upload-title">Tender Document</span>
+                <span class="upload-subtitle">Accepted: `.txt`, `.pdf`, or image scans</span>
+                <input id="tender-file" type="file" accept=".txt,text/plain,.pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,application/pdf,image/*" />
               </label>
 
               <label class="upload-card">
                 <span class="upload-title">Bidder Evidence</span>
-                <span class="upload-subtitle">Accepted: one or more `.json` files</span>
-                <input id="bidder-files" type="file" accept=".json,application/json" multiple />
+                <span class="upload-subtitle">Accepted: `.json`, `.pdf`, or image scans</span>
+                <input id="bidder-files" type="file" accept=".json,application/json,.pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,application/pdf,image/*" multiple />
               </label>
             </div>
 
@@ -73,21 +73,6 @@
             </div>
           </div>
 
-          <div class="document-ai-panel">
-            <div>
-              <p class="mini-label">AI document extraction</p>
-              <h3>Analyze scanned or PDF evidence</h3>
-              <p class="upload-subtitle">Uses Azure AI Document Intelligence `prebuilt-layout` to extract text, pages, and tables.</p>
-            </div>
-            <label class="upload-card">
-              <span class="upload-title">PDF / image / scan</span>
-              <span class="upload-subtitle">Accepted: `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.bmp`</span>
-              <input id="document-ai-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,application/pdf,image/*" />
-            </label>
-            <div id="document-ai-result" class="empty-state">
-              Upload a document to see extracted OCR and layout details.
-            </div>
-          </div>
         </section>
 
         <section id="tender-snapshot" class="panel anchor-panel">
@@ -189,7 +174,7 @@
       </div>
     </template>
 
-    <script src="./core.js"></script>
-    <script src="./app.js"></script>
+    <script src="./core.js?v=20260504-5"></script>
+    <script src="./app.js?v=20260504-5"></script>
   </body>
 </html>
