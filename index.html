@@ -152,6 +152,41 @@
       </main>
     </div>
 
+    <dialog id="export-dialog" class="export-dialog" aria-labelledby="export-dialog-title">
+      <form method="dialog" class="export-dialog-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Export Report</p>
+            <h2 id="export-dialog-title">Choose a format</h2>
+          </div>
+          <p>Pick the output that best fits how you want to review or share the report.</p>
+        </div>
+
+        <div class="export-choice-grid">
+          <button type="button" class="export-choice-card" data-export-format="json">
+            <strong>JSON</strong>
+            <span>Best for structured handoff, automation, and preserving full detail.</span>
+          </button>
+          <button type="button" class="export-choice-card" data-export-format="csv">
+            <strong>CSV</strong>
+            <span>Best for spreadsheet review, sorting, and quick committee comparisons.</span>
+          </button>
+          <button type="button" class="export-choice-card" data-export-format="html">
+            <strong>HTML</strong>
+            <span>Best for readable browsing and internal circulation in a browser.</span>
+          </button>
+          <button type="button" class="export-choice-card" data-export-format="pdf">
+            <strong>PDF</strong>
+            <span>Best for shareable, print-friendly reports with fixed layout.</span>
+          </button>
+        </div>
+
+        <div class="export-dialog-actions">
+          <button type="button" id="export-dialog-cancel" class="ghost-btn">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
     <template id="criterion-template">
       <article class="criterion-card">
         <div class="criterion-top">
@@ -190,6 +225,7 @@
     </template>
 
     <script src="./core.js?v=20260504-11"></script>
-    <script src="./app.js?v=20260504-11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="./app.js?v=20260507-01"></script>
   </body>
 </html>

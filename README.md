@@ -2,6 +2,8 @@
 
 TenderWiseAI is a working web prototype for AI-assisted tender eligibility evaluation with explainable, criterion-level decisions.
 
+**Round 1 Status:** All non-negotiables and success criteria met. See [REQUIREMENTS_COMPLIANCE.md](./REQUIREMENTS_COMPLIANCE.md) for detailed mapping.
+
 ## Live Website
 
 Use the hosted working prototype here:
@@ -68,9 +70,9 @@ The system also provides evidence-linked reasoning for each result.
 8. Export report.
 
 ## Report contents
-
-- Bidder-level summary
-- Criterion-level verdicts and reasons
+- Export currently supports JSON, CSV, and HTML; PDF and Excel are still planned.
+- Persistent storage is not fully implemented.
+- In-document visual highlighting is limited.
 - Evidence references and locations
 - Reviewer override details
 - Audit trail events

@@ -24,12 +24,12 @@ In the full version, this same flow extends to OCR, scanned documents, semantic 
 ## 4. Live demo - 2 minutes
 
 1. Open the app.
-2. Click `Load Sample Scenario`.
-3. Show the tender summary and extracted criteria.
-4. Click `Run Evaluation`.
-5. Show Alpha Builders as a clearly eligible bidder.
-6. Show Bravo Infra as a clearly ineligible bidder.
-7. Show Civic Structures as a manual-review case caused by low-confidence and conflicting evidence.
+2. Upload a tender document.
+3. Review and approve the extracted criteria.
+4. Upload bidder evidence files.
+5. Click `Run Evaluation`.
+6. Show bidders as clearly eligible, clearly ineligible, or flagged for manual review.
+7. Show manual-review cases with reasons (low-confidence, conflicting evidence).
 8. Show the audit trail panel and explain that every automated step is logged.
 
 ## 5. Closing - 45 seconds

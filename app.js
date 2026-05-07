@@ -20,10 +20,14 @@ const API_BASE_URL = "http://localhost:3000";
 const MAX_DOCUMENT_UPLOAD_BYTES = 50 * 1024 * 1024;
 document.getElementById("run-eval-btn").addEventListener("click", () => runEvaluation());
 document.getElementById("reset-btn").addEventListener("click", resetApp);
-document.getElementById("export-report-btn").addEventListener("click", exportReport);
+document.getElementById("export-report-btn").addEventListener("click", openExportDialog);
 document.getElementById("tender-file").addEventListener("change", handleTenderUpload);
 document.getElementById("tender-amendments").addEventListener("change", handleAmendmentUpload);
 document.getElementById("bidder-files").addEventListener("change", handleBidderUploads);
+document.getElementById("export-dialog-cancel").addEventListener("click", closeExportDialog);
+document.querySelectorAll("[data-export-format]").forEach((button) => {
+  button.addEventListener("click", () => exportReport(button.dataset.exportFormat || "json"));
+});
 
 function pushAudit(event, detail) {
   state.audit.push({
@@ -1241,10 +1245,15 @@ function toggleReportActions(enabled) {
   }
 }
 
-function exportReport() {
-  if (!state.results.length) return;
+function openExportDialog() {
+  const dialog = document.getElementById("export-dialog");
+  if (dialog && typeof dialog.showModal === "function") {
+    dialog.showModal();
+  }
+}
 
-  const report = buildEvaluationReport({
+function buildCurrentEvaluationReport() {
+  return buildEvaluationReport({
     tenderSource: state.tenderSource,
     tenderVersions: state.tenderVersions,
     amendmentHistory: state.amendmentHistory,
@@ -1264,16 +1273,202 @@ function exportReport() {
       "Full OCR and document-normalization pipeline for PDF, scans, Word files, and photographs remains a production extension.",
     ],
   });
+}
 
-  const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+function downloadReport(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "tender-evaluation-report.json";
+  anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
 
+function csvCell(value) {
+  return `"${String(value ?? "").replaceAll(/\r?\n/g, " ").replaceAll('"', '""')}"`;
+}
+
+function formatEvidenceLocation(evidenceLocation) {
+  if (!evidenceLocation) {
+    return "N/A";
+  }
+
+  const documentName = evidenceLocation.documentName || "Unknown document";
+  if (evidenceLocation.locationType === "page-range") {
+    return `Page ${evidenceLocation.pageRange} of ${documentName}`;
+  }
+
+  return `${evidenceLocation.pageRange} in ${documentName}`;
+}
+
+function buildCsvReport(report) {
+  const rows = [[
+    "bidder_name",
+    "bidder_overall",
+    "criterion_id",
+    "criterion_title",
+    "criterion_verdict",
+    "reason",
+    "document",
+    "evidence_value",
+    "evidence_location",
+    "source",
+    "threshold",
+    "logic",
+  ]];
+
+  report.bidderResults.forEach((bidderResult) => {
+    bidderResult.criteria.forEach((criterionResult) => {
+      rows.push([
+        csvCell(bidderResult.bidderName),
+        csvCell(bidderResult.overall),
+        csvCell(criterionResult.criterion_id || ""),
+        csvCell(criterionResult.title || ""),
+        csvCell(criterionResult.verdict || ""),
+        csvCell(criterionResult.reviewOverride?.reason || criterionResult.reason || ""),
+        csvCell(criterionResult.document || ""),
+        csvCell(criterionResult.evidence || "N/A"),
+        csvCell(formatEvidenceLocation(criterionResult.evidenceLocation)),
+        csvCell(criterionResult.source || ""),
+        csvCell(criterionResult.criterion || ""),
+        csvCell(criterionResult.logic || ""),
+      ]);
+    });
+  });
+
+  return rows.map((row) => row.join(",")).join("\n");
+}
+
+function buildHtmlReport(report) {
+  const summaryCards = [
+    ["Bidders", report.summary.bidders],
+    ["Eligible", report.summary.overallEligible],
+    ["Not Eligible", report.summary.overallNotEligible],
+    ["Manual Review", report.summary.overallReview],
+  ]
+    .map(([label, value]) => `<article class="export-summary-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`)
+    .join("");
+
+  const bidderSections = report.bidderResults
+    .map((bidderResult) => {
+      const criteriaRows = bidderResult.criteria
+        .map((criterionResult) => `
+          <tr>
+            <td>${escapeHtml(criterionResult.title || "")}</td>
+            <td>${escapeHtml(criterionResult.verdict || "")}</td>
+            <td>${escapeHtml(criterionResult.reviewOverride?.reason || criterionResult.reason || "")}</td>
+            <td>${escapeHtml(criterionResult.document || "")}</td>
+            <td>${escapeHtml(criterionResult.evidence || "N/A")}</td>
+            <td>${escapeHtml(formatEvidenceLocation(criterionResult.evidenceLocation))}</td>
+          </tr>
+        `)
+        .join("");
+
+      return `
+        <section class="export-bidder-section">
+          <div class="export-bidder-head">
+            <h2>${escapeHtml(bidderResult.bidderName)}</h2>
+            <span class="result-chip ${statusClass(bidderResult.overall)}">${escapeHtml(bidderResult.overall)}</span>
+          </div>
+          <table class="export-table">
+            <thead>
+              <tr>
+                <th>Criterion</th>
+                <th>Verdict</th>
+                <th>Reason</th>
+                <th>Document</th>
+                <th>Evidence value</th>
+                <th>Evidence location</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${criteriaRows}
+            </tbody>
+          </table>
+        </section>
+      `;
+    })
+    .join("");
+
+  return `<!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>TenderWiseAI Evaluation Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 32px; background: #f6f7fb; color: #18202b; }
+        .report-shell { max-width: 1100px; margin: 0 auto; }
+        .report-header { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 24px; }
+        .report-header h1 { margin: 0; }
+        .report-header p { margin: 6px 0 0; color: #556070; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px; }
+        .export-summary-card { background: #fff; border: 1px solid #d8dee8; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .export-summary-card span { color: #667085; font-size: 0.9rem; }
+        .export-summary-card strong { font-size: 1.4rem; }
+        .export-bidder-section { margin-bottom: 24px; background: #fff; border: 1px solid #d8dee8; border-radius: 18px; padding: 20px; }
+        .export-bidder-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 16px; }
+        .export-bidder-head h2 { margin: 0; }
+        .result-chip { border-radius: 999px; padding: 8px 12px; font-weight: 700; font-size: 0.85rem; }
+        .status-eligible { background: #e7f8ee; color: #166534; }
+        .status-ineligible { background: #fee8e7; color: #991b1b; }
+        .status-review { background: #fff4db; color: #92400e; }
+        .export-table { width: 100%; border-collapse: collapse; }
+        .export-table th, .export-table td { text-align: left; vertical-align: top; padding: 10px 12px; border-top: 1px solid #e5eaf2; }
+        .export-table th { background: #f8fafc; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: #667085; }
+        .meta { color: #667085; margin-bottom: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="report-shell">
+        <header class="report-header">
+          <div>
+            <h1>TenderWiseAI Evaluation Report</h1>
+            <p>Exported in HTML format for quick review and internal circulation.</p>
+          </div>
+          <div class="meta">Generated: ${escapeHtml(report.generatedAt)}</div>
+        </header>
+
+        <section class="summary-grid">
+          ${summaryCards}
+        </section>
+
+        ${bidderSections}
+      </div>
+    </body>
+  </html>`;
+}
+
+function closeExportDialog() {
+  const dialog = document.getElementById("export-dialog");
+  if (dialog && dialog.open) {
+    dialog.close();
+  }
+}
+
+function exportReport(format = "json") {
+  if (!state.results.length) return;
+
+  const report = buildCurrentEvaluationReport();
+
+  if (format === "csv") {
+    downloadReport("tender-evaluation-report.csv", buildCsvReport(report), "text/csv;charset=utf-8");
+    pushAudit("Evaluation report exported", "Generated CSV report for spreadsheet review.");
+    closeExportDialog();
+    return;
+  }
+
+  if (format === "html") {
+    downloadReport("tender-evaluation-report.html", buildHtmlReport(report), "text/html;charset=utf-8");
+    pushAudit("Evaluation report exported", "Generated HTML report for browsable review.");
+    closeExportDialog();
+    return;
+  }
+
+  downloadReport("tender-evaluation-report.json", JSON.stringify(report, null, 2), "application/json;charset=utf-8");
   pushAudit("Evaluation report exported", "Generated structured JSON report for procurement review.");
+  closeExportDialog();
 }
 
 function renderAudit() {
