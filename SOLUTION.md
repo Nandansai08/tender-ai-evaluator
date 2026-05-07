@@ -214,7 +214,30 @@ The rule model must support at least:
 
 ## 6. Approach to Parsing Bidder Submissions
 
-### 6.1 Heterogeneous Document Handling
+### 6.1 OCR and Document Intelligence Engine Selection
+
+**Why Azure Document Intelligence?**
+
+The platform uses Azure Document Intelligence (Form Recognizer API) as the primary OCR and layout-understanding engine for the following reasons:
+
+1. **Superior layout preservation** — Unlike Tesseract (which excels at pure OCR but loses structural context), Azure understands tables, headers, multi-column layouts, and form fields. This is critical for processing diverse bidder submissions where structure encodes meaning (e.g., financial tables, certificate templates).
+
+2. **Pre-built industry models** — Azure includes pre-trained models for specific document types (invoices, receipts, business cards). While government tender submissions are custom, the layout model generalizes well across scanned documents and photographs.
+
+3. **Confidence scoring at word level** — Essential for audit trails. When OCR confidence on a key field is below 70%, the system routes the case to manual review rather than silently accepting a misread value.
+
+4. **Handles degraded images** — Scanned documents from procurement offices are often low-quality (poor lighting, skew, ink bleed). Azure's preprocessing (deskew, denoise, contrast enhancement) outperforms Tesseract, which requires manual preprocessing tuning.
+
+5. **Comparison to alternatives:**
+   - **Tesseract**: Open source, lower cost, but lacks layout understanding and requires heavy preprocessing. Not suitable for government audit trails that demand reproducibility.
+   - **Google Vision API**: Comparable quality to Azure, but higher per-request costs and less transparent confidence scoring; also requires careful handling of PII (documents may contain SSNs, PAN, etc.).
+
+**Hybrid approach for word-format documents:**
+
+For `.doc` and `.docx` files, the system uses specialized libraries:
+- `mammoth` (DOCX) and `word-extractor` (legacy DOC) for direct text extraction before resorting to OCR. This avoids OCR overhead when machine-readable text is available and preserves native formatting metadata.
+
+### 6.2 Heterogeneous Document Handling
 
 Bidder submissions are messy because the same fact can be shown through balance sheets, CA certificates, work orders, completion certificates, GST certificates, affidavits, or covering letters. The platform must treat documents as evidence sources, not just files.
 
@@ -252,7 +275,7 @@ We use a modality-aware pipeline:
 - account label normalization
 - value extraction with unit normalization (`lakh`, `crore`, commas, decimals)
 
-### 6.2 Bidder Evidence Schema
+### 6.3 Bidder Evidence Schema
 
 All extracted evidence is stored in a structured evidence model:
 
@@ -276,7 +299,7 @@ All extracted evidence is stored in a structured evidence model:
 
 This representation enables page-level traceability and visual highlighting in the UI.
 
-### 6.3 Information Extraction Targets
+### 6.4 Information Extraction Targets
 
 The system will extract:
 
@@ -289,7 +312,7 @@ The system will extract:
 - declaration presence
 - supporting document presence and completeness
 
-### 6.4 Handling Variation in Presentation
+### 6.5 Handling Variation in Presentation
 
 A bidder may state "turnover" in one document as:
 
@@ -551,23 +574,159 @@ So the correct design is:
 - deterministic rules for final eligibility checks
 - confidence thresholds and human review for ambiguity
 
-### 11.2 Model Strategy
+### 11.2 LLM Selection: Amazon Bedrock with nova-lite
 
-We would use different model classes for different tasks:
+**Why Amazon Bedrock?**
 
-1. **OCR/Layout Models**
+1. **Vendor independence** — Bedrock abstracts away specific model vendor (Anthropic, Meta, Mistral, etc.), allowing easy model swaps without re-engineering. This is critical for government procurement, where vendor lock-in risks must be minimized.
+
+2. **Model isolation and safety** — Bedrock runs models in isolated environments with strict request/response isolation. Sensitive procurement documents (potentially containing PII or strategic information) are not used to train or fine-tune shared models.
+
+3. **Audit-ready logging** — Full request/response logging, model version tracking, and invocation counts support government compliance and cost transparency.
+
+4. **Cost-effective inference** — Pay per token consumed; no minimum commitments. Suitable for variable-load tender evaluation workflows.
+
+**Why nova-lite (vs. other models)?**
+
+1. **Speed and cost balance** — nova-lite is optimized for instruction-following tasks (criterion extraction, entity classification) with lower latency and cost than larger models (claude-opus, GPT-4).
+
+2. **Sufficient reasoning for tender extraction** — Tender criteria extraction is a structured task (identify clauses, classify financial/technical/compliance). nova-lite is sufficient for this; larger models would be wasteful.
+
+3. **Local fine-tuning ready** — nova-lite is available for local fine-tuning, enabling organizations to adapt it to domain-specific tender language without re-architecting the pipeline.
+
+4. **Comparison to alternatives:**
+   - **GPT-4**: Overkill for extraction tasks; requires OpenAI dependency; higher per-token cost.
+   - **Open-source models (Llama 2, Mistral)**: Require on-premise hosting and fine-tuning; higher operational overhead for government IT departments.
+   - **Smaller specialized models**: Often underperform on complex legal/financial language extraction.
+
+### 11.3 Model Strategy for Different Tasks
+
+We use different model classes for different tasks:
+
+1. **OCR/Layout Models** (Azure Document Intelligence)
    - to read scans, tables, and page structure
+   - confidence scoring essential for audit
 
-2. **Clause Extraction / Information Extraction LLM**
+2. **Clause Extraction / Information Extraction LLM** (Bedrock nova-lite)
    - to convert tender text into normalized criteria
+   - to extract structured fields from bidder documents
 
-3. **Semantic Matching Model**
+3. **Semantic Matching Model** (Embedding-based or lightweight LLM)
    - to compare project descriptions and technical similarity
+   - to rank evidence by relevance
 
-4. **Rule Engine**
+4. **Rule Engine** (Custom deterministic logic)
    - to compute transparent pass/fail/review outputs
+   - to aggregate multi-criterion evidence
 
-This modularity allows later replacement of any model without redesigning the whole system.
+This modularity allows later replacement of any model without redesigning the whole system. For example, an organization could swap nova-lite for a fine-tuned local model without touching OCR or rule logic.
+
+## 11.4 Edge Cases and Mitigation Strategy
+
+The platform must handle common failure modes that arise in real procurement:
+
+### A. Scanned Documents with Poor Image Quality
+
+**Problem:** Low-contrast, skewed, or low-resolution scans common in government procurement offices.
+
+**Examples:**
+- Photocopy of photocopy (cascading artifacts)
+- Mobile phone photo taken at angle
+- Faxed documents (compression artifacts)
+
+**Mitigation:**
+- Preprocessing pipeline: deskew, denoise (bilateral filter), contrast enhancement (CLAHE)
+- Multi-pass OCR: fallback to higher-sensitivity settings if first pass yields low confidence
+- Confidence threshold: if word-level confidence < 70%, flag for manual review
+- Bounding box capture: enable reviewer to see exactly what OCR extracted vs. original
+
+### B. Ambiguous Numeric Values
+
+**Problem:** Turnover can be stated as "5 crores", "5 Cr", "50,000,000", "5,00,00,000" (Indian notation), or even "~5 Cr" (approximate).
+
+**Examples:**
+- Currency notation inconsistency across documents
+- Use of abbreviations (Cr, Lac, K)
+- Conflicting figures in balance sheet vs. CA certificate
+
+**Mitigation:**
+- Unit normalization: map all abbreviations to canonical form (e.g., all to INR)
+- Contradiction detection: if two documents show different turnover figures, flag for manual review
+- Confidence scoring: penalize extracted values that required multiple transformations
+- Audit trace: record original extracted value, normalized value, and transformation applied
+
+### C. Expired or Invalid Certificates
+
+**Problem:** Certificate validity dates can be ambiguous (issue date, expiry date may be missing or in non-standard formats).
+
+**Examples:**
+- ISO certification with expiry date close to tender deadline
+- GST certificate showing "valid until revoked" (no explicit expiry)
+- Certificate in a scanned image with unreadable expiry date
+
+**Mitigation:**
+- Date extraction confidence: if expiry date OCR confidence < 80%, route to manual review
+- Temporal validation: check if certificate was valid on tender submission date
+- Missing expiry logic: require explicit human confirmation for open-ended certificates
+- Audit log: record whether system auto-accepted or referred to reviewer
+
+### D. Partial Information and Missing Pages
+
+**Problem:** Bidders sometimes omit required documents or submit incomplete evidence.
+
+**Examples:**
+- Balance sheet without notes (required for CA certificate linkage)
+- Project experience without work order or completion certificate
+- Financial statement missing one page
+
+**Mitigation:**
+- Document completeness check: flag if expected document sections are missing
+- Partial evidence logic: require higher confidence on all extracted fields if supporting docs are absent
+- Manual review trigger: incomplete evidence → automatic escalation
+- Evidence ranking: prioritize high-authority documents (audited statements > self-declarations)
+
+### E. Format Inconsistency Within a Single Bid
+
+**Problem:** The same bidder may submit project details in a table in one document, narrative in another, and work orders in a third.
+
+**Examples:**
+- Project scope in tender response vs. project scope in completion certificate
+- Financial figures in annual return vs. GST return vs. bank statement
+
+**Mitigation:**
+- Entity linking: map references to same entity across documents
+- Cross-document validation: compute similarity between claims in different documents
+- Contradiction handling: multiple conflicting sources → manual review (not silent failure)
+- Confidence aggregation: combine confidence from multiple sources (higher if consistent)
+
+### F. Ambiguous Legal Language
+
+**Problem:** Procurement tender language often contains conditional or subjective clauses.
+
+**Examples:**
+- "Bidder must have experience in similar projects" (what is "similar"?)
+- "Turnover must demonstrate financial capacity" (unspecified threshold)
+- "Subject to approvals as per government policy" (policy not always explicit)
+
+**Mitigation:**
+- Officer review checkpoint: ambiguous criteria highlighted during criterion extraction phase
+- Semantic threshold configuration: "similar project" similarity > 0.7 (tunable)
+- Explicit flagging: ambiguity reason codes in audit log
+- LLM confidence: low LLM confidence on criterion extraction → human confirmation required
+
+### G. Temporal Mismatches
+
+**Problem:** Financial thresholds often require data from a specific period (e.g., "last 3 financial years"), but bidder submissions may contain data from different periods.
+
+**Examples:**
+- Tender requires "last 3 years" but bidder submits 2 years of financials
+- Turnover requirement based on FY 2024-25, but bidder submits data through March 2024
+
+**Mitigation:**
+- Temporal validation: extract and validate financial year ranges from all documents
+- Period mismatch detection: if bidder data spans different period, flag explicitly
+- Policy compliance: officer configures acceptable tolerance (e.g., ±6 months)
+- Audit record: which years were used to compute each metric
 
 ## 12. Risks and Trade-Offs
 
