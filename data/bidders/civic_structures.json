@@ -1,0 +1,29 @@
+{
+  "bidderName": "Civic Structures Consortium",
+  "documents": {
+    "turnover": {
+      "valueCrore": 5.8,
+      "confidence": 0.58,
+      "conflicting": true,
+      "document": "Scanned_Turnover_Certificate_Civic.jpg"
+    },
+    "projects": [
+      { "name": "Security Compound Construction", "similarity": "high", "completed": true },
+      { "name": "Transit Camp Buildout", "similarity": "medium", "completed": true },
+      { "name": "Storage Depot Shed", "similarity": "high", "completed": true }
+    ],
+    "gst": {
+      "present": true,
+      "valid": false,
+      "number": "GST number partially visible",
+      "document": "GST_Civic_scan.jpg"
+    },
+    "iso": {
+      "present": true,
+      "valid": true,
+      "confidence": 0.62,
+      "certificateId": "ISO-CIVIC-9001",
+      "document": "ISO_Civic_scan.jpg"
+    }
+  }
+}
