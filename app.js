@@ -1466,6 +1466,185 @@ function exportReport(format = "json") {
     return;
   }
 
+  if (format === "pdf") {
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const margin = 36;
+      let y = margin;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const usableWidth = pageWidth - margin * 2;
+
+      // Improved header box with metadata
+      const headerH = 72;
+      doc.setFillColor(240, 243, 250);
+      doc.rect(margin - 6, y - 8, usableWidth + 12, headerH, 'F');
+      doc.setFontSize(14);
+      doc.setFont(undefined, "bold");
+      doc.text("TenderWiseAi Evaluation Report", margin + 6, y + 8);
+      doc.setFontSize(9);
+      doc.setFont(undefined, "normal");
+      doc.text(`Generated: ${report.generatedAt || 'N/A'}`, margin + 6, y + 26);
+      if (report.tenderSource) doc.text(`Tender: ${report.tenderSource}`, margin + 6, y + 40);
+      doc.text(`Bidders: ${report.bidderResults.length}`, margin + usableWidth - 120, y + 26);
+
+      // Audit box (compact) on header right
+      const auditX = margin + usableWidth - 200;
+      const auditBoxW = 188;
+      const auditBoxH = 48;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(210);
+      doc.rect(auditX, y + 6, auditBoxW, auditBoxH, 'FD');
+      doc.setFontSize(9);
+      doc.setFont(undefined, "bold");
+      doc.text("Audit (latest)", auditX + 6, y + 18);
+      doc.setFontSize(8);
+      doc.setFont(undefined, "normal");
+      let auditY = y + 28;
+      const auditList = (report.auditTrail || report.audit || []).slice(-4).reverse();
+      auditList.forEach((entry) => {
+        const txt = `${entry.timestamp.replace(/T.*/, '')} ${entry.event}`;
+        const lines = doc.splitTextToSize(txt, auditBoxW - 12);
+        doc.text(lines, auditX + 6, auditY);
+        auditY += lines.length * 8;
+      });
+
+      y += headerH + 6;
+
+      // Divider
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.6);
+      doc.line(margin, y - 6, pageWidth - margin, y - 6);
+
+      // Prepare columns
+      const col1 = margin + 4;
+      const col2 = margin + Math.floor(usableWidth * 0.45);
+      const col3 = margin + Math.floor(usableWidth * 0.68);
+
+      // Bidders
+      doc.setFontSize(11);
+      report.bidderResults.forEach((bidderResult) => {
+        if (y > pageHeight - 160) { doc.addPage(); y = margin; }
+
+        doc.setFont(undefined, "bold");
+        doc.setFontSize(12);
+        doc.text(bidderResult.bidderName, col1, y);
+        doc.setFont(undefined, "normal");
+        doc.setFontSize(10);
+        doc.text(`Overall: ${bidderResult.overall}`, col3, y);
+        y += 18;
+
+        // Column headers
+        doc.setFontSize(9);
+        doc.setFont(undefined, "bold");
+        doc.text("Criterion", col1, y);
+        doc.text("Verdict", col2, y);
+        doc.text("Evidence", col3, y);
+        doc.setFont(undefined, "normal");
+        y += 8;
+
+        // Separator
+        doc.setDrawColor(230);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 6;
+
+        bidderResult.criteria.forEach((criterion, idx) => {
+          const title = String(criterion.title || "");
+          const verdict = String(criterion.verdict || "");
+          const evidenceText = String(criterion.evidence || "N/A");
+          const evidenceLoc = criterion.evidenceLocation || null;
+
+          // alternating row background for readability
+          const rowH = 12 * Math.max(1, Math.ceil(Math.max(title.length, evidenceText.length) / 60));
+          if (idx % 2 === 0) {
+            doc.setFillColor(250, 250, 252);
+            doc.rect(margin, y - 8, usableWidth, rowH + 6, 'F');
+          }
+
+          const titleLines = doc.splitTextToSize(title, col2 - col1 - 8);
+          const evidenceLines = doc.splitTextToSize(evidenceText, pageWidth - col3 - margin - 10);
+          const maxLines = Math.max(titleLines.length, evidenceLines.length, 1);
+
+          for (let i = 0; i < maxLines; i++) {
+            if (y > pageHeight - 100) { doc.addPage(); y = margin; }
+            const titlePart = titleLines[i] || "";
+            const evidencePart = evidenceLines[i] || "";
+            doc.setFontSize(9);
+            doc.text(titlePart, col1, y);
+            if (i === 0) doc.text(verdict, col2, y);
+            doc.text(evidencePart, col3, y);
+            y += 10;
+          }
+
+          if (evidenceLoc) {
+            const locText = formatEvidenceLocation(evidenceLoc);
+            const locLines = doc.splitTextToSize(`Location: ${locText}`, usableWidth - 10);
+            locLines.forEach((ln) => {
+              if (y > pageHeight - 80) { doc.addPage(); y = margin; }
+              doc.setFontSize(8);
+              doc.text(ln, col1 + 8, y);
+              y += 9;
+            });
+
+            const docName = evidenceLoc.documentName || "";
+            if (/^https?:\/\//i.test(docName)) {
+              try {
+                doc.setFontSize(8);
+                const linkText = "Open document";
+                doc.textWithLink(linkText, col3, y, { url: docName });
+                y += 12;
+              } catch (e) {
+                try { doc.link(col3, y - 10, 120, 12, { url: docName }); } catch (e2) { /* ignore */ }
+              }
+            }
+          }
+
+          y += 6;
+        });
+
+        y += 12;
+      });
+
+      // Full audit section
+      if (y > pageHeight - 200) { doc.addPage(); y = margin; }
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.text("Full Audit Trail", margin, y);
+      y += 14;
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(8);
+      const fullAudit = (report.auditTrail || report.audit || []);
+      fullAudit.forEach((entry) => {
+        const text = `${entry.timestamp} — ${entry.event}: ${entry.detail || ""}`;
+        const lines = doc.splitTextToSize(text, usableWidth);
+        lines.forEach((ln) => {
+          if (y > pageHeight - 60) { doc.addPage(); y = margin; }
+          doc.text(ln, margin, y);
+          y += 9;
+        });
+        y += 4;
+      });
+
+      // Page numbers
+      const pageCount = doc.getNumberOfPages();
+      for (let p = 1; p <= pageCount; p++) {
+        doc.setPage(p);
+        doc.setFontSize(8);
+        doc.text(`Page ${p} of ${pageCount}`, pageWidth - margin - 80, pageHeight - 20);
+      }
+
+      const pdfBlob = doc.output("blob");
+      downloadReport("tender-evaluation-report.pdf", pdfBlob, "application/pdf");
+      pushAudit("Evaluation report exported", "Generated PDF report (improved layout).");
+    } catch (err) {
+      pushAudit("PDF export failed", err.message || String(err));
+    }
+    closeExportDialog();
+    return;
+  }
+
   downloadReport("tender-evaluation-report.json", JSON.stringify(report, null, 2), "application/json;charset=utf-8");
   pushAudit("Evaluation report exported", "Generated structured JSON report for procurement review.");
   closeExportDialog();
