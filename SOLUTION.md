@@ -912,9 +912,8 @@ The browser app currently implements the following end-to-end features:
 
 ### What Is Still Deferred
 
-1. PDF, Excel, or CSV export formats.
-2. Persistent database storage.
-3. Authentication and role-based access control.
-4. Interactive source-document highlighting or embedded viewer links.
-5. Bounding-box level visual highlighting in the UI.
-6. Production observability and deployment hardening.
+1. Persistent database storage.
+2. Authentication and role-based access control.
+3. Interactive source-document highlighting or embedded viewer links.
+4. Bounding-box level visual highlighting in the UI.
+5. Production observability and deployment hardening.
