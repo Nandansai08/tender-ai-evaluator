@@ -77,20 +77,36 @@ The system also provides evidence-linked reasoning for each result.
 - Reviewer override details
 - Audit trail events
 
-## Run locally
+## Instructions to Run
 
-If you want to run the prototype locally:
+Reviewers can test the project locally with these steps:
 
-1. Install Node.js 18+.
-2. Start the server:
+1. Install Node.js 18 or later.
+2. Open a terminal in the project folder and install dependencies:
 
 ```bash
-node server.js
+npm install
 ```
 
-3. Open:
+3. Start the app:
 
+```bash
+npm start
+```
+
+4. Open the app in your browser:
+
+```text
 http://localhost:3000
+```
+
+5. Optional: run the test suite before reviewing changes:
+
+```bash
+npm test
+```
+
+No environment variables are required for the local prototype.
 
 ## Current limitations
 
