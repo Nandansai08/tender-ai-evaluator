@@ -50,14 +50,20 @@
             <div class="upload-grid">
               <label class="upload-card">
                 <span class="upload-title">Tender Document</span>
-                <span class="upload-subtitle">Accepted: `.txt`, `.pdf`, or image scans</span>
-                <input id="tender-file" type="file" accept=".txt,text/plain,.pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,application/pdf,image/*" />
+                <span class="upload-subtitle">Accepted: `.txt`, `.pdf`, `.doc`, `.docx`, or image scans</span>
+                <input id="tender-file" type="file" accept=".txt,text/plain,.pdf,application/pdf,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.png,.jpg,.jpeg,.tif,.tiff,.bmp,image/*" />
+              </label>
+
+              <label class="upload-card">
+                <span class="upload-title">Tender Amendments (Optional)</span>
+                <span class="upload-subtitle">Corrigenda/addenda documents - load after main tender</span>
+                <input id="tender-amendments" type="file" accept=".txt,text/plain,.pdf,application/pdf,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.png,.jpg,.jpeg,.tif,.tiff,.bmp,image/*" multiple />
               </label>
 
               <label class="upload-card">
                 <span class="upload-title">Bidder Evidence</span>
-                <span class="upload-subtitle">Accepted: `.json`, `.pdf`, or image scans</span>
-                <input id="bidder-files" type="file" accept=".json,application/json,.pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,application/pdf,image/*" multiple />
+                <span class="upload-subtitle">Accepted: `.json`, `.pdf`, `.doc`, `.docx`, or image scans</span>
+                <input id="bidder-files" type="file" accept=".json,application/json,.pdf,application/pdf,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.png,.jpg,.jpeg,.tif,.tiff,.bmp,image/*" multiple />
               </label>
             </div>
 
@@ -102,6 +108,16 @@
           </div>
           <div id="criteria-list" class="empty-state">
             No criteria available yet.
+          </div>
+        </section>
+
+        <section id="amendment-section" class="panel anchor-panel">
+          <div class="section-head">
+            <h2>Tender Amendments</h2>
+            <p>Track criteria changes across tender versions and amendments (corrigenda/addenda).</p>
+          </div>
+          <div id="amendment-history" class="empty-state">
+            No amendments loaded yet.
           </div>
         </section>
 
@@ -174,7 +190,7 @@
       </div>
     </template>
 
-    <script src="./core.js?v=20260504-5"></script>
-    <script src="./app.js?v=20260504-5"></script>
+    <script src="./core.js?v=20260504-10"></script>
+    <script src="./app.js?v=20260504-10"></script>
   </body>
 </html>

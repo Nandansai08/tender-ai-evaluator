@@ -235,10 +235,18 @@ h2 {
   align-items: stretch;
 }
 
+.intake-grid > * {
+  min-width: 0;
+}
+
 .upload-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.upload-grid > * {
+  min-width: 0;
 }
 
 .upload-card {
@@ -264,6 +272,8 @@ h2 {
 .criterion-source,
 .result-reason {
   color: var(--muted);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .status-strip {
@@ -274,6 +284,13 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: #f8fafc;
+}
+
+.status-strip > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
 }
 
 .empty-state {
@@ -287,6 +304,96 @@ h2 {
 .tender-rejection {
   display: grid;
   gap: 12px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--danger) 20%, var(--line));
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fff6f5 0%, #fff 100%);
+}
+
+.tender-rejection h3 {
+  margin-bottom: 6px;
+}
+
+.tender-rejection .queue-top {
+  align-items: flex-start;
+}
+
+.approval-section {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 18px;
+  border: 2px solid var(--accent);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.05) 0%, #fff 100%);
+}
+
+.approval-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.approval-status .mini-label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.approval-status .status-value {
+  font-weight: 700;
+}
+
+.approval-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.approval-buttons .primary-btn,
+.approval-buttons .secondary-btn {
+  flex: 1;
+  min-width: 160px;
+}
+
+.rejection-status {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(220, 38, 38, 0.08) 0%, #fff 100%);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));
+}
+
+.rejection-status .mini-label {
+  margin-bottom: 0;
+}
+
+.rejection-badge {
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.rejection-reason {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.review-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.tender-rejection-detail {
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, var(--line));
+  background: #fff;
 }
 
 .criteria-grid,
@@ -299,6 +406,10 @@ h2 {
 
 .dashboard-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-grid > * {
+  min-width: 0;
 }
 
 .criterion-card,
@@ -350,6 +461,8 @@ h2 {
 
 .criterion-title {
   margin: 14px 0 8px;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .summary-card,
@@ -366,6 +479,8 @@ h2 {
   font-size: 1.02rem;
   line-height: 1.55;
   color: var(--ink);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .criterion-meta {
@@ -375,10 +490,16 @@ h2 {
   margin-bottom: 0;
 }
 
+.criterion-meta > * {
+  min-width: 0;
+}
+
 .criterion-meta div {
   padding: 10px 12px;
   border-radius: 14px;
   background: #f8fafc;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .criterion-meta dt {
@@ -387,10 +508,14 @@ h2 {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .criterion-meta dd {
   margin: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .bidder-card {
@@ -423,12 +548,44 @@ h2 {
 
 .result-title {
   margin-bottom: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .result-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.result-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.override-status {
+  margin: 0;
+  color: var(--muted);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.override-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.override-button-row .secondary-btn,
+.override-button-row .ghost-btn {
+  min-width: 140px;
+}
+
+.result-detail-grid > * {
+  min-width: 0;
 }
 
 .queue-title {
@@ -439,12 +596,16 @@ h2 {
 .queue-reason,
 .queue-empty {
   color: var(--muted);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .detail-box {
   padding: 10px 12px;
   border-radius: 14px;
   background: #f8fafc;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .detail-box strong {
@@ -482,6 +643,117 @@ h2 {
 
 .audit-item p {
   margin-bottom: 0;
+}
+
+/* Amendment/Corrigenda styling */
+.amendment-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  background-color: #fff3cd;
+  border-left: 3px solid #ffc107;
+  font-size: 0.85rem;
+  margin-top: 8px;
+  border-radius: 2px;
+}
+
+.amendment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.amendment-item {
+  padding: 12px;
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.amendment-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.version-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: bold;
+  font-size: 0.85rem;
+  border-radius: 3px;
+  min-width: 40px;
+  text-align: center;
+}
+
+.version-name {
+  font-weight: 500;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.version-date {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.amendment-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 2px;
+}
+
+.change-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.change-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.change-group.added .change-label {
+  color: var(--success);
+}
+
+.change-group.modified .change-label {
+  color: var(--warn);
+}
+
+.change-group.removed .change-label {
+  color: var(--danger);
+}
+
+.change-item {
+  padding: 4px 6px;
+  font-size: 0.85rem;
+  margin-left: 12px;
+  border-left: 2px solid currentColor;
+  padding-left: 8px;
+}
+
+.change-group.added .change-item {
+  color: var(--success);
+}
+
+.change-group.modified .change-item {
+  color: var(--warn);
+}
+
+.change-group.removed .change-item {
+  color: var(--danger);
+  text-decoration: line-through;
 }
 
 @media (max-width: 1024px) {

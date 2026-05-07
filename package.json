@@ -8,6 +8,8 @@
     "test": "node tests/evaluator.test.js"
   },
   "dependencies": {
-    "@azure/ai-form-recognizer": "^5.1.0"
+    "@azure/ai-form-recognizer": "^5.1.0",
+    "mammoth": "^1.12.0",
+    "word-extractor": "^1.0.4"
   }
 }

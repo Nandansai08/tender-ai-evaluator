@@ -79,8 +79,8 @@ async function classifyDocumentWithAi(text, source = "uploaded document") {
   try {
     const payload = await provider.call({
       system:
-        "Classify procurement documents. Return only JSON. Be conservative: if the document is a fee schedule, academic notice, invoice, brochure, unrelated form, or generic policy, classify it as other.",
-      user: `Classify this OCR text.
+        "Classify procurement documents. Return only JSON. Be conservative: if the document is a fee schedule, academic notice, invoice, brochure, unrelated form, or generic policy, classify it as other. Key distinction: TENDER documents post requirements/criteria using imperatives ('must have', 'bidders should submit'). BIDDER documents respond with qualifications/evidence using statements ('we have', 'our turnover is', 'enclosed are our certificates').",
+      user: `Classify this procurement document.
 
 Return JSON:
 {
@@ -90,7 +90,7 @@ Return JSON:
 }
 
 Source: ${source}
-OCR text:
+Text:
 ${text.slice(0, 12000)}`,
     });
 
@@ -177,10 +177,25 @@ async function evaluateTenderBiddersWithAi({ tenderText, tenderSource, bidders }
     throw new Error("Amazon Bedrock is not configured.");
   }
 
+  // Truncate tender text and bidder evidence to prevent token overflow
+  const maxTenderLength = 8000;
+  const maxBidderLength = 4000;
+  const truncatedTender = tenderText.length > maxTenderLength 
+    ? tenderText.substring(0, maxTenderLength) + "\n[... truncated for brevity ...]"
+    : tenderText;
+  
+  const truncatedBidders = bidders.map(b => {
+    if (typeof b === 'string') return b.substring(0, maxBidderLength);
+    if (b.extractedText && b.extractedText.length > maxBidderLength) {
+      return { ...b, extractedText: b.extractedText.substring(0, maxBidderLength) + "\n[... truncated for brevity ...]" };
+    }
+    return b;
+  });
+
   const payload = await provider.call({
     system:
-      "You are a government tender eligibility evaluator. Use only the provided tender and bidder evidence. Return only JSON. Do not invent criteria. If the tender text is not a tender/RFP/bid/procurement notice, return empty criteria and empty results. If bidder evidence is unrelated or insufficient, use Needs Manual Review instead of guessing.",
-    user: `Evaluate each bidder against the tender requirements.
+      "You are a government tender eligibility evaluator. Use only the provided tender and bidder evidence. Return only JSON. Do not invent criteria. Be concise. If the tender text is not a tender/RFP/bid/procurement notice, return empty criteria and empty results. If bidder evidence is unrelated or insufficient, use Needs Manual Review instead of guessing.",
+    user: `Evaluate each bidder against the tender requirements. Keep responses brief and factual.
 
 Return JSON with this exact shape:
 {
@@ -221,10 +236,10 @@ Return JSON with this exact shape:
 
 Tender source: ${tenderSource || "uploaded tender"}
 Tender OCR text:
-${tenderText}
+${truncatedTender}
 
 Bidder OCR/evidence:
-${JSON.stringify(bidders, null, 2)}`,
+${JSON.stringify(truncatedBidders, null, 2)}`,
   });
 
   const criteria = normalizeCriteria(payload.criteria || []);
@@ -270,7 +285,7 @@ async function callBedrockConverse({ system, user }) {
         },
       ],
       inferenceConfig: {
-        maxTokens: Number(process.env.BEDROCK_MAX_TOKENS || 4096),
+        maxTokens: Number(process.env.BEDROCK_MAX_TOKENS || 8192),
         temperature: Number(process.env.BEDROCK_TEMPERATURE || 0.1),
         topP: Number(process.env.BEDROCK_TOP_P || 0.95),
       },
@@ -295,14 +310,49 @@ async function callBedrockConverse({ system, user }) {
 }
 
 function parseJsonObject(content) {
+  // First, try direct parsing
   try {
     return JSON.parse(content);
-  } catch (error) {
-    const match = content.match(/\{[\s\S]*\}/);
-    if (match) {
-      return JSON.parse(match[0]);
+  } catch (initialError) {
+    // Try to extract JSON by finding balanced braces
+    const trimmed = content.trim();
+    
+    // Look for leading { and try to find the matching }
+    const startIdx = trimmed.indexOf('{');
+    if (startIdx === -1) {
+      throw new Error(`No JSON object found in response. Content: ${trimmed.substring(0, 500)}`);
     }
-    throw error;
+
+    // Find the matching closing brace by counting braces
+    let braceCount = 0;
+    let endIdx = -1;
+    for (let i = startIdx; i < trimmed.length; i++) {
+      if (trimmed[i] === '{') braceCount++;
+      if (trimmed[i] === '}') braceCount--;
+      if (braceCount === 0) {
+        endIdx = i + 1;
+        break;
+      }
+    }
+
+    if (endIdx === -1) {
+      // Braces are unbalanced - the response is incomplete
+      throw new Error(
+        `JSON response appears incomplete or malformed. First 1000 chars: ${trimmed.substring(0, 1000)}. ` +
+        `Last 500 chars: ${trimmed.substring(Math.max(0, trimmed.length - 500))}. ` +
+        `Consider increasing BEDROCK_MAX_TOKENS environment variable.`
+      );
+    }
+
+    const jsonString = trimmed.substring(startIdx, endIdx);
+    try {
+      return JSON.parse(jsonString);
+    } catch (extractError) {
+      throw new Error(
+        `Extracted JSON is still invalid: ${extractError.message}. ` +
+        `Extracted content (first 1000 chars): ${jsonString.substring(0, 1000)}`
+      );
+    }
   }
 }
 

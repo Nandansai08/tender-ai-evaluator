@@ -102,18 +102,28 @@ http
 async function handleDocumentAnalysis(req, res) {
   try {
     const body = await readRequestBuffer(req);
-    const buffer = isMultipartRequest(req) ? extractMultipartFile(body, req.headers["content-type"]) : body;
+    const uploadedDocument = isMultipartRequest(req)
+      ? extractMultipartFile(body, req.headers["content-type"])
+      : {
+          buffer: body,
+          fileName: getRequestDocumentName(req),
+          contentType: String(req.headers["x-document-type"] || "application/octet-stream").toLowerCase(),
+        };
+    const { buffer } = uploadedDocument;
 
     if (!buffer.length) {
       writeJson(res, 400, { error: "No document was uploaded." });
       return;
     }
 
-    console.log(`Document analysis upload: ${getRequestDocumentName(req)} (${formatMegabytes(buffer.length)} MB)`);
-    const result = await analyzeDocumentBuffer(buffer);
+    console.log(`Document analysis upload: ${uploadedDocument.fileName} (${formatMegabytes(buffer.length)} MB)`);
+    const result = await analyzeDocumentBuffer(buffer, {
+      fileName: uploadedDocument.fileName,
+      contentType: uploadedDocument.contentType,
+    });
     writeJson(res, 200, result);
   } catch (error) {
-    writeJson(res, 500, {
+    writeJson(res, error.message.startsWith("Unsupported document format") ? 400 : 500, {
       error: "Document analysis failed.",
       detail: error.message,
     });
@@ -157,6 +167,11 @@ function extractMultipartFile(body, contentType = "") {
     throw new Error("Multipart upload body is malformed.");
   }
 
+  const headerBlock = body.subarray(0, headerEnd).toString("utf8");
+  const fileNameMatch = headerBlock.match(/filename="([^"]+)"/i);
+  const fileNameStarMatch = headerBlock.match(/filename\*=([^\r\n;]+)/i);
+  const contentTypeMatch = headerBlock.match(/content-type:\s*([^\r\n;]+)/i);
+
   const fileStart = headerEnd + 4;
   const fileEndMarker = Buffer.from(`\r\n${boundary}`);
   const fileEnd = body.indexOf(fileEndMarker, fileStart);
@@ -164,7 +179,29 @@ function extractMultipartFile(body, contentType = "") {
     throw new Error("Multipart upload file boundary is missing.");
   }
 
-  return body.subarray(fileStart, fileEnd);
+  return {
+    buffer: body.subarray(fileStart, fileEnd),
+    fileName: resolveMultipartFileName(fileNameMatch, fileNameStarMatch),
+    contentType: contentTypeMatch ? contentTypeMatch[1].trim().toLowerCase() : "application/octet-stream",
+  };
+}
+
+function resolveMultipartFileName(fileNameMatch, fileNameStarMatch) {
+  if (fileNameMatch && fileNameMatch[1]) {
+    return fileNameMatch[1];
+  }
+
+  if (fileNameStarMatch && fileNameStarMatch[1]) {
+    const rawValue = fileNameStarMatch[1].trim();
+    const stripped = rawValue.replace(/^utf-8''/i, "").replace(/^"|"$/g, "");
+    try {
+      return decodeURIComponent(stripped);
+    } catch {
+      return stripped;
+    }
+  }
+
+  return "uploaded document";
 }
 
 function getRequestDocumentName(req) {
@@ -194,10 +231,13 @@ async function handleDocumentAnalysisJson(req, res) {
       return;
     }
 
-    const result = await analyzeDocumentBuffer(buffer);
+    const result = await analyzeDocumentBuffer(buffer, {
+      fileName: body.fileName || "uploaded document",
+      contentType: String(body.mimeType || "application/octet-stream").toLowerCase(),
+    });
     writeJson(res, 200, result);
   } catch (error) {
-    writeJson(res, 500, {
+    writeJson(res, error.message.startsWith("Unsupported document format") ? 400 : 500, {
       error: "Document analysis failed.",
       detail: error.message,
     });
@@ -315,7 +355,7 @@ function writeJson(res, statusCode, payload) {
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Document-Name, X-Document-Type");
 }
 
 function loadLocalEnv() {

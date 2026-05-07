@@ -120,29 +120,18 @@ The platform has seven major layers:
 7. **Review and Reporting Layer**
    - Human review dashboard, criterion drill-down, exportable evaluation report, sign-off workflow.
 
-### 4.2 Suggested Technical Stack
+### 4.2 Technical Stack
 
-For a Round 2 sandbox implementation, we would use:
+The website uses:
 
-- **Frontend**: React or Next.js for evaluator dashboard
-- **Backend APIs**: Python FastAPI
-- **Workflow orchestration**: Temporal, Prefect, or Celery
-- **Document store**: Object storage such as S3-compatible bucket or MinIO
-- **Relational database**: PostgreSQL for criteria, evidence, verdicts, audit metadata
-- **Search and retrieval**: OpenSearch / Elasticsearch or pgvector
-- **OCR and layout**:
-  - PaddleOCR / Tesseract for baseline OCR
-  - TrOCR / docTR / cloud OCR as optional upgrade
-  - LayoutLMv3 / Donut-style document models for layout-aware extraction
-- **LLM / reasoning layer**:
-  - A strong instruction-following LLM for clause interpretation and normalization
-  - A smaller domain-tuned model for classification/extraction where needed
-- **Rule engine**:
-  - Deterministic Python rules or JSONLogic / Drools-like execution layer
-- **Observability**:
-  - Structured logs, OpenTelemetry traces, model output capture
+- **Frontend**: Vanilla HTML, CSS, and JavaScript in the browser
+- **Backend**: Node.js HTTP server
+- **Document extraction**: Azure Document Intelligence for PDFs/images/Office files, `mammoth` for DOCX, and `word-extractor` for legacy DOC
+- **LLM / reasoning layer**: Amazon Bedrock with `nova-lite`
+- **Report format**: Structured JSON export, with non-JSON formats deferred
+- **State model**: In-browser application state with audit trail, review metadata, and amendment provenance
 
-We deliberately separate AI extraction from deterministic decisioning. This improves trust, reduces hallucination risk, and makes outputs easier to audit.
+The prototype still separates AI extraction from deterministic decisioning. This improves trust, reduces hallucination risk, and makes outputs easier to audit.
 
 ## 5. Approach to Extracting Eligibility Criteria from Tender Documents
 
@@ -737,3 +726,36 @@ The core innovation is not merely document extraction. It is the combination of:
 - procurement-grade auditability
 
 Such a system can significantly reduce evaluation time, improve consistency across evaluators, and strengthen the defensibility of procurement decisions for organisations such as CRPF.
+
+## 17. Current Website Implementation
+
+The browser app currently implements the following end-to-end features:
+
+1. Tender upload for `.txt`, `.pdf`, `.doc`, `.docx`, and image scans.
+2. Bidder upload for `.json`, `.pdf`, `.doc`, `.docx`, and image scans.
+3. DOCX extraction through `mammoth` and legacy DOC extraction through `word-extractor`.
+4. Azure Document Intelligence fallback for supported scanned and office formats.
+5. Tender criterion extraction into structured rules.
+6. Officer approval and rejection workflow for extracted criteria.
+7. Officer notes and rejection reasons on the criteria review step.
+8. Evaluation gate that blocks bidder evaluation until criteria are approved.
+9. Criterion-level bidder verdicts with `Eligible`, `Not Eligible`, and `Needs Manual Review` outcomes.
+10. Bidder evaluation result cards with decision logic, evidence, source document, and evidence location.
+11. Page-level or synthetic page evidence tracking for bidder documents.
+12. Reviewer overrides for individual criterion results, with optional justification notes.
+13. Live portfolio summary and manual review queue recalculation after overrides.
+14. Tender amendment and corrigenda/addenda handling with version history.
+15. Amendment change detection for added, modified, and removed criteria.
+16. Criteria provenance fields showing origin version, last modified version, and amendment badges.
+17. Audit trail logging for uploads, review actions, evaluations, and overrides.
+18. JSON report export including criteria review, amendment history, evidence locations, and reviewer overrides.
+19. Reset and re-extraction workflow for restarting the review process.
+
+### What Is Still Deferred
+
+1. PDF, Excel, or CSV export formats.
+2. Persistent database storage.
+3. Authentication and role-based access control.
+4. Interactive source-document highlighting or embedded viewer links.
+5. Bounding-box level visual highlighting in the UI.
+6. Production observability and deployment hardening.

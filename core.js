@@ -68,7 +68,7 @@
   }
 
   function evaluateBidder(bidder, criteria) {
-    const criterionResults = criteria.map((criterion) => evaluateCriterion(bidder, criterion));
+    const criterionResults = criteria.map((criterion) => evaluateCriterion(bidder, criterion, bidder.documentAnalysis));
     const summary = {
       eligible: criterionResults.filter((item) => item.verdict === "Eligible").length,
       notEligible: criterionResults.filter((item) => item.verdict === "Not Eligible").length,
@@ -87,6 +87,7 @@
       overall,
       summary,
       criteria: criterionResults,
+      documentAnalysis: bidder.documentAnalysis,
     };
   }
 
@@ -103,19 +104,21 @@
     };
 
     results.forEach((result) => {
-      if (result.overall === "Eligible") portfolio.overallEligible += 1;
-      if (result.overall === "Not Eligible") portfolio.overallNotEligible += 1;
-      if (result.overall === "Needs Manual Review") portfolio.overallReview += 1;
+      const effectiveOverall = getEffectiveOverall(result);
+      if (effectiveOverall === "Eligible") portfolio.overallEligible += 1;
+      if (effectiveOverall === "Not Eligible") portfolio.overallNotEligible += 1;
+      if (effectiveOverall === "Needs Manual Review") portfolio.overallReview += 1;
 
       result.criteria.forEach((criterionResult) => {
-        if (criterionResult.verdict === "Eligible") portfolio.criterionEligible += 1;
-        if (criterionResult.verdict === "Not Eligible") portfolio.criterionNotEligible += 1;
-        if (criterionResult.verdict === "Needs Manual Review") {
+        const effectiveVerdict = getEffectiveVerdict(criterionResult);
+        if (effectiveVerdict === "Eligible") portfolio.criterionEligible += 1;
+        if (effectiveVerdict === "Not Eligible") portfolio.criterionNotEligible += 1;
+        if (effectiveVerdict === "Needs Manual Review") {
           portfolio.criterionReview += 1;
           portfolio.manualReviewQueue.push({
             bidderName: result.bidderName,
             title: criterionResult.title,
-            reason: criterionResult.reason,
+            reason: getEffectiveReason(criterionResult),
             document: criterionResult.document,
             evidence: criterionResult.evidence,
           });
@@ -132,6 +135,15 @@
     return {
       generatedAt: input.generatedAt || new Date().toISOString(),
       tenderSource: input.tenderSource || "Unknown tender source",
+      tenderVersions: input.tenderVersions || [],
+      amendmentHistory: input.amendmentHistory || [],
+      criteriaReview: input.criteriaReview || {
+        approved: false,
+        rejected: false,
+        rejectionReason: "",
+        note: "",
+        updatedAt: null,
+      },
       criteriaExtracted: input.criteria.map((criterion) => ({
         id: criterion.id,
         title: criterion.title,
@@ -141,24 +153,75 @@
         evidenceNeeded: criterion.evidenceNeeded,
         reviewTrigger: criterion.reviewTrigger,
         source: criterion.source,
+        originVersion: criterion.originVersion,
+        lastModifiedVersion: criterion.lastModifiedVersion,
+        amendment: criterion.amendment,
       })),
       summary,
       bidderResults: input.results,
+      reviewOverrides: collectReviewOverrides(input.results),
       auditTrail: input.audit || [],
       solutionScope: input.solutionScope || [],
     };
   }
 
-  function evaluateCriterion(bidder, criterion) {
+  function collectReviewOverrides(results) {
+    const overrides = [];
+    results.forEach((result) => {
+      result.criteria.forEach((criterionResult) => {
+        if (criterionResult.reviewOverride) {
+          overrides.push({
+            bidderName: result.bidderName,
+            criterion: criterionResult.title,
+            originalVerdict: criterionResult.verdict,
+            verdict: criterionResult.reviewOverride.verdict,
+            reason: criterionResult.reviewOverride.reason,
+            note: criterionResult.reviewOverride.note,
+            updatedAt: criterionResult.reviewOverride.updatedAt,
+          });
+        }
+      });
+    });
+
+    return overrides;
+  }
+
+  function getEffectiveVerdict(criterionResult) {
+    return criterionResult.reviewOverride && criterionResult.reviewOverride.verdict
+      ? criterionResult.reviewOverride.verdict
+      : criterionResult.verdict;
+  }
+
+  function getEffectiveReason(criterionResult) {
+    return criterionResult.reviewOverride && criterionResult.reviewOverride.reason
+      ? criterionResult.reviewOverride.reason
+      : criterionResult.reason;
+  }
+
+  function getEffectiveOverall(result) {
+    const summary = { eligible: 0, notEligible: 0, review: 0 };
+    result.criteria.forEach((criterionResult) => {
+      const verdict = getEffectiveVerdict(criterionResult);
+      if (verdict === "Eligible") summary.eligible += 1;
+      if (verdict === "Not Eligible") summary.notEligible += 1;
+      if (verdict === "Needs Manual Review") summary.review += 1;
+    });
+
+    if (summary.notEligible > 0) return "Not Eligible";
+    if (summary.review > 0) return "Needs Manual Review";
+    return "Eligible";
+  }
+
+  function evaluateCriterion(bidder, criterion, documentAnalysis = null) {
     switch (criterion.id) {
       case "FIN-001":
-        return evaluateTurnover(bidder, criterion);
+        return evaluateTurnover(bidder, criterion, documentAnalysis);
       case "TECH-001":
-        return evaluateProjects(bidder, criterion);
+        return evaluateProjects(bidder, criterion, documentAnalysis);
       case "COMP-001":
-        return evaluateGst(bidder, criterion);
+        return evaluateGst(bidder, criterion, documentAnalysis);
       case "CERT-001":
-        return evaluateIso(bidder, criterion);
+        return evaluateIso(bidder, criterion, documentAnalysis);
       default:
         return {
           title: criterion.title,
@@ -168,15 +231,17 @@
           evidence: "N/A",
           document: "N/A",
           logic: "Manual fallback",
+          evidenceLocation: null,
         };
     }
   }
 
-  function evaluateTurnover(bidder, criterion) {
+  function evaluateTurnover(bidder, criterion, documentAnalysis = null) {
     const value = bidder.documents.turnover.valueCrore;
     const confidence = bidder.documents.turnover.confidence;
     const conflicting = bidder.documents.turnover.conflicting;
     const evidence = `INR ${value} crore (confidence ${confidence})`;
+    const evidenceLocation = documentAnalysis ? createEvidenceLocation(bidder.documents.turnover.document, documentAnalysis) : null;
 
     if (confidence < 0.7 || conflicting) {
       return {
@@ -189,6 +254,7 @@
         evidence,
         document: bidder.documents.turnover.document,
         logic: `Threshold ${criterion.thresholdLabel}; confidence gate applied`,
+        evidenceLocation,
       };
     }
 
@@ -201,6 +267,7 @@
         evidence,
         document: bidder.documents.turnover.document,
         logic: `${value} >= ${criterion.threshold}`,
+        evidenceLocation,
       };
     }
 
@@ -212,13 +279,15 @@
       evidence,
       document: bidder.documents.turnover.document,
       logic: `${value} < ${criterion.threshold}`,
+      evidenceLocation,
     };
   }
 
-  function evaluateProjects(bidder, criterion) {
+  function evaluateProjects(bidder, criterion, documentAnalysis = null) {
     const projects = bidder.documents.projects;
     const eligibleProjects = projects.filter((project) => project.similarity === "high" && project.completed);
     const borderlineProjects = projects.filter((project) => project.similarity === "medium");
+    const evidenceLocation = documentAnalysis ? createEvidenceLocation("Project experience sheet and completion certificates", documentAnalysis) : null;
 
     if (eligibleProjects.length >= criterion.threshold) {
       return {
@@ -229,6 +298,7 @@
         evidence: eligibleProjects.map((project) => project.name).join(", "),
         document: "Project experience sheet and completion certificates",
         logic: `${eligibleProjects.length} >= ${criterion.threshold}`,
+        evidenceLocation,
       };
     }
 
@@ -241,6 +311,7 @@
         evidence: projects.map((project) => `${project.name} (${project.similarity})`).join(", "),
         document: "Project experience sheet and completion certificates",
         logic: "Borderline semantic match on prior work scope",
+        evidenceLocation,
       };
     }
 
@@ -252,11 +323,14 @@
       evidence: projects.map((project) => `${project.name} (${project.similarity})`).join(", "),
       document: "Project experience sheet and completion certificates",
       logic: `${eligibleProjects.length} < ${criterion.threshold}`,
+      evidenceLocation,
     };
   }
 
-  function evaluateGst(bidder, criterion) {
+  function evaluateGst(bidder, criterion, documentAnalysis = null) {
     const gst = bidder.documents.gst;
+    const evidenceLocation = documentAnalysis ? createEvidenceLocation(gst.document, documentAnalysis) : null;
+
     if (gst.present && gst.valid) {
       return {
         title: criterion.title,
@@ -266,6 +340,7 @@
         evidence: gst.number,
         document: gst.document,
         logic: "Document presence and validity check passed",
+        evidenceLocation,
       };
     }
 
@@ -278,6 +353,7 @@
         evidence: gst.number || "GST number not confidently extracted",
         document: gst.document,
         logic: "Manual validation required",
+        evidenceLocation,
       };
     }
 
@@ -289,11 +365,13 @@
       evidence: "No GST evidence found",
       document: "N/A",
       logic: "Mandatory compliance document not found",
+      evidenceLocation,
     };
   }
 
-  function evaluateIso(bidder, criterion) {
+  function evaluateIso(bidder, criterion, documentAnalysis = null) {
     const iso = bidder.documents.iso;
+    const evidenceLocation = documentAnalysis ? createEvidenceLocation(iso.document, documentAnalysis) : null;
 
     if (iso.present && iso.valid && iso.confidence >= 0.8) {
       return {
@@ -304,6 +382,7 @@
         evidence: iso.certificateId,
         document: iso.document,
         logic: "Certificate presence and validity check passed",
+        evidenceLocation,
       };
     }
 
@@ -316,6 +395,7 @@
         evidence: iso.certificateId || "Certificate ID unclear",
         document: iso.document,
         logic: "Confidence gate applied to certification evidence",
+        evidenceLocation,
       };
     }
 
@@ -327,6 +407,36 @@
       evidence: "No ISO evidence found",
       document: "N/A",
       logic: "Mandatory certification missing",
+      evidenceLocation,
+    };
+  }
+
+  function createEvidenceLocation(documentName, documentAnalysis) {
+    if (!documentAnalysis) return null;
+    
+    // For documents with page data (Azure OCR, synthetic pages from word extraction)
+    if (documentAnalysis.pages && documentAnalysis.pages.length > 0) {
+      const firstPage = documentAnalysis.pages[0];
+      return {
+        documentName: documentAnalysis.documentName || documentName,
+        page: firstPage.pageNumber || 1,
+        pageRange: documentAnalysis.pages.length > 1 
+          ? `${firstPage.pageNumber}-${documentAnalysis.pages[documentAnalysis.pages.length - 1].pageNumber}`
+          : String(firstPage.pageNumber),
+        extractionMode: documentAnalysis.extractionMode,
+        locationType: "page-range",
+      };
+    }
+
+    // Fallback for documents without page data
+    return {
+      documentName: documentAnalysis.documentName || documentName,
+      page: "N/A",
+      pageRange: documentAnalysis.paragraphCount 
+        ? `${documentAnalysis.paragraphCount} paragraphs` 
+        : "document",
+      extractionMode: documentAnalysis.extractionMode,
+      locationType: "paragraph-count",
     };
   }
 
@@ -335,6 +445,7 @@
     extractCriteria,
     evaluateBidder,
     evaluateCriterion,
+    getEffectiveVerdict,
     summarizeEvaluation,
   };
 
