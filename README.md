@@ -42,10 +42,11 @@ This scope emphasizes explainability and defensibility over full automation — 
 ## Tech choices
 
 - Frontend: plain HTML, CSS, JavaScript
-- Server: dependency-free Node HTTP server
+- Server: Node.js HTTP server
+- Document extraction: Azure Document Intelligence, mammoth, word-extractor
 - Dataset: mock tender text and bidder JSON files
 
-This stack was chosen because it runs without package installation and is straightforward to evaluate, demonstrate, and extend.
+This stack was chosen to stay easy to evaluate while still handling real procurement document formats.
 
 ## How to run
 
@@ -67,21 +68,9 @@ Then open [http://localhost:3000](http://localhost:3000).
 node tests/evaluator.test.js
 ```
 
-## Developer notes
+## For developers
 
-This project now includes a CI workflow skeleton and a short checklist for implementing RBAC and immutable run snapshots.
-
-- CI workflow: `.github/workflows/ci.yml` — runs `npm test` on push and PR to `main` (skeleton).
-- RBAC/run-snapshot checklist: `RBAC_RUN_SNAPSHOT_CHECKLIST.md` — tasks and next steps for production hardening.
-
-To run tests locally (same as CI):
-
-```bash
-npm ci
-npm test
-```
-
-To add RBAC and snapshot support, start with the checklist file above and follow the "Next steps" section.
+Developer-focused notes have been moved to [DEVELOPMENT.md](./DEVELOPMENT.md) to keep this README user-first.
 
 
 ## Deploy to Azure
