@@ -94,7 +94,6 @@ http://localhost:3000
 
 ## Current limitations
 
-- Export is currently JSON only.
 - Persistent storage is not fully implemented.
 - In-document visual highlighting is limited.
 
@@ -110,4 +109,5 @@ http://localhost:3000
 
 - Solution write-up: [SOLUTION.md](./SOLUTION.md)
 - Walkthrough script: [VIDEO_SCRIPT.md](./VIDEO_SCRIPT.md)
+- Demo video: [Google Drive link](https://drive.google.com/file/d/1Uz4tA18fi-GaBDta8TraoO6mYBwgFnw2/view?usp=drive_link)
 - Development notes: [DEVELOPMENT.md](./DEVELOPMENT.md)
