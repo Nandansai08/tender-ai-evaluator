@@ -23,20 +23,21 @@ This is an original solution built for the problem statement and not a wrapper a
 
 ## Solution scope
 
-The current solution supports a representative scenario:
+The current prototype implements a practical, evidence-first evaluation flow and supports a broader set of real-world inputs and review controls. Key capabilities include:
 
-- one tender document in plain text
-- multiple bidder submissions in JSON
-- automatic extraction of four tender criteria:
-  - minimum turnover
-  - similar project experience
-  - GST registration
-  - ISO 9001 certification
-- criterion-level verdicts:
-  - `Eligible`
-  - `Not Eligible`
-  - `Needs Manual Review`
-- evidence-backed decision explanations
+- Multi-format tender intake: `.txt`, `.pdf`, `.doc`, `.docx`, and scanned/image uploads.
+- Bidder submission intake across formats: `.json`, `.pdf`, `.doc`, `.docx`, and images.
+- Document extraction pipelines: `mammoth` for DOCX, `word-extractor` for legacy DOC, and Azure Document Intelligence for layout and OCR.
+- Tender criterion extraction into normalized rule objects, with officer review (approve/reject) before evaluation.
+- Criterion-level verdicts: `Eligible`, `Not Eligible`, `Needs Manual Review`, with plain-language explanations.
+- Evidence provenance: page-level (native or synthetic) tracing back to source file, page, and (where available) bounding box.
+- Reviewer overrides and justification capture, plus a manual-review queue for ambiguous cases.
+- Tender amendment / corrigenda handling with version history and criterion provenance.
+- Immutable-like run snapshot and audit logging (uploads, model versions, reviewer actions) captured in exports.
+- JSON report export containing criteria review, amendment history, evidence references, and reviewer overrides.
+- Reset and re-extraction workflow to recover from extraction mistakes or updated documents.
+
+This scope emphasizes explainability and defensibility over full automation — ambiguous or low-confidence cases are routed to reviewers rather than silently rejected.
 
 ## Tech choices
 
@@ -65,6 +66,23 @@ Then open [http://localhost:3000](http://localhost:3000).
 ```bash
 node tests/evaluator.test.js
 ```
+
+## Developer notes
+
+This project now includes a CI workflow skeleton and a short checklist for implementing RBAC and immutable run snapshots.
+
+- CI workflow: `.github/workflows/ci.yml` — runs `npm test` on push and PR to `main` (skeleton).
+- RBAC/run-snapshot checklist: `RBAC_RUN_SNAPSHOT_CHECKLIST.md` — tasks and next steps for production hardening.
+
+To run tests locally (same as CI):
+
+```bash
+npm ci
+npm test
+```
+
+To add RBAC and snapshot support, start with the checklist file above and follow the "Next steps" section.
+
 
 ## Deploy to Azure
 
