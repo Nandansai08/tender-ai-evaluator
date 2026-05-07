@@ -17,123 +17,7 @@ const state = {
 const { buildEvaluationReport, extractCriteria, evaluateBidder, getEffectiveVerdict, summarizeEvaluation } = window.TenderEvaluatorCore;
 const API_BASE_URL = "http://localhost:3000";
 
-const samplePaths = {
-  tender: "./data/tender_sample.txt",
-  bidders: [
-    "./data/bidders/alpha_builders.json",
-    "./data/bidders/bravo_infra.json",
-    "./data/bidders/civic_structures.json",
-  ],
-};
-
 const MAX_DOCUMENT_UPLOAD_BYTES = 50 * 1024 * 1024;
-
-const fallbackScenario = {
-  tenderText: `Representative Tender - Construction Services
-
-Clause 4.2 Financial Eligibility
-The bidder must demonstrate a minimum annual turnover of INR 5 crore based on certified financial statements.
-
-Clause 4.3 Technical Eligibility
-The bidder must have completed at least 3 similar projects completed in the last 5 years.
-
-Clause 5.1 Compliance Requirements
-The bidder shall submit a valid GST registration certificate.
-
-Clause 5.2 Quality Certification
-The bidder shall submit a valid ISO 9001 certification.`,
-  bidders: [
-    {
-      bidderName: "Alpha Builders Pvt Ltd",
-      documents: {
-        turnover: {
-          valueCrore: 6.4,
-          confidence: 0.95,
-          conflicting: false,
-          document: "CA_Certificate_Alpha.pdf",
-        },
-        projects: [
-          { name: "District Barracks Upgrade", similarity: "high", completed: true },
-          { name: "Training Campus Expansion", similarity: "high", completed: true },
-          { name: "Police Housing Block", similarity: "high", completed: true },
-        ],
-        gst: {
-          present: true,
-          valid: true,
-          number: "29ABCDE1234F1Z5",
-          document: "GST_Alpha.pdf",
-        },
-        iso: {
-          present: true,
-          valid: true,
-          confidence: 0.94,
-          certificateId: "ISO-ALPHA-9001",
-          document: "ISO_Alpha.jpg",
-        },
-      },
-    },
-    {
-      bidderName: "Bravo Infra Works",
-      documents: {
-        turnover: {
-          valueCrore: 4.1,
-          confidence: 0.92,
-          conflicting: false,
-          document: "Audited_Financials_Bravo.pdf",
-        },
-        projects: [
-          { name: "Municipal Road Repair", similarity: "medium", completed: true },
-          { name: "Boundary Wall Package", similarity: "high", completed: true },
-          { name: "Drainage Rehabilitation", similarity: "low", completed: true },
-        ],
-        gst: {
-          present: true,
-          valid: true,
-          number: "07PQRSX9876L1Z2",
-          document: "GST_Bravo.pdf",
-        },
-        iso: {
-          present: false,
-          valid: false,
-          confidence: 0,
-          certificateId: "",
-          document: "",
-        },
-      },
-    },
-    {
-      bidderName: "Civic Structures Consortium",
-      documents: {
-        turnover: {
-          valueCrore: 5.8,
-          confidence: 0.58,
-          conflicting: true,
-          document: "Scanned_Turnover_Certificate_Civic.jpg",
-        },
-        projects: [
-          { name: "Security Compound Construction", similarity: "high", completed: true },
-          { name: "Transit Camp Buildout", similarity: "medium", completed: true },
-          { name: "Storage Depot Shed", similarity: "high", completed: true },
-        ],
-        gst: {
-          present: true,
-          valid: false,
-          number: "GST number partially visible",
-          document: "GST_Civic_scan.jpg",
-        },
-        iso: {
-          present: true,
-          valid: true,
-          confidence: 0.62,
-          certificateId: "ISO-CIVIC-9001",
-          document: "ISO_Civic_scan.jpg",
-        },
-      },
-    },
-  ],
-};
-
-document.getElementById("load-sample-btn").addEventListener("click", loadSampleScenario);
 document.getElementById("run-eval-btn").addEventListener("click", () => runEvaluation());
 document.getElementById("reset-btn").addEventListener("click", resetApp);
 document.getElementById("export-report-btn").addEventListener("click", exportReport);
@@ -148,47 +32,6 @@ function pushAudit(event, detail) {
     detail,
   });
   renderAudit();
-}
-
-async function loadSampleScenario() {
-  try {
-    resetApp(false);
-
-    const [tenderResponse, ...bidderResponses] = await Promise.all([
-      fetch(samplePaths.tender),
-      ...samplePaths.bidders.map((path) => fetch(path)),
-    ]);
-
-    const failedResponse = [tenderResponse, ...bidderResponses].find((response) => !response.ok);
-    if (failedResponse) {
-      throw new Error(`Could not load ${failedResponse.url || "sample data"}`);
-    }
-
-    state.tenderText = await tenderResponse.text();
-    state.tenderSource = "tender_sample.txt";
-    const bidders = await Promise.all(bidderResponses.map((response) => response.json()));
-    state.bidders = await Promise.all(
-      bidders.map((bidder, index) => normalizeBidderEvidence(bidder, samplePaths.bidders[index])),
-    );
-
-    updateStatus();
-    pushAudit("Sample scenario loaded", "Loaded tender_sample.txt and 3 bidder evidence files.");
-    await extractAndRenderCriteria("Sample scenario tender");
-    renderCriteria();
-    runEvaluation("Sample scenario evaluated");
-  } catch (error) {
-    state.tenderText = fallbackScenario.tenderText;
-    state.tenderSource = "embedded_sample_scenario";
-    state.bidders = await Promise.all(
-      fallbackScenario.bidders.map((bidder) => normalizeBidderEvidence(bidder, bidder.bidderName)),
-    );
-
-    updateStatus();
-    pushAudit("Sample scenario loaded", `Used embedded scenario because file loading failed: ${error.message}`);
-    await extractAndRenderCriteria("Embedded sample scenario");
-    renderCriteria();
-    runEvaluation("Sample scenario evaluated");
-  }
 }
 
 function resetApp(clearInputs = true) {
@@ -208,7 +51,7 @@ function resetApp(clearInputs = true) {
   }
 
   document.getElementById("tender-summary").innerHTML =
-    "Load a sample scenario or upload a tender to view extracted criteria.";
+    "Upload a tender to view extracted criteria.";
   document.getElementById("criteria-list").innerHTML = "No criteria available yet.";
   setHtmlIfPresent(
     "amendment-history",
@@ -489,7 +332,7 @@ async function handleBidderUploads(event) {
 }
 
 function updateStatus() {
-  const tenderLabel = state.tenderSource === "embedded_sample_scenario" ? "Sample scenario" : state.tenderSource;
+  const tenderLabel = state.tenderSource;
   document.getElementById("tender-status").textContent = tenderLabel
     ? `${tenderLabel} loaded`
     : "No tender loaded";

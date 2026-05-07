@@ -37,7 +37,7 @@ node server.js
 
 ## How to use
 
-1. Click `Load Sample Scenario` for a ready-to-run demo, or upload your own files.
+1. Upload your tender, optional amendments, and bidder files.
 2. Confirm extracted criteria and approve them.
 3. Click `Run Evaluation`.
 4. Review outcomes, especially `Needs Manual Review` items.
