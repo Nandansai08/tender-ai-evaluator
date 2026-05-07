@@ -29,7 +29,7 @@ const samplePaths = {
 const MAX_DOCUMENT_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 const fallbackScenario = {
-  tenderText: `CRPF Representative Tender - Construction Services
+  tenderText: `Representative Tender - Construction Services
 
 Clause 4.2 Financial Eligibility
 The bidder must demonstrate a minimum annual turnover of INR 5 crore based on certified financial statements.
@@ -172,22 +172,22 @@ async function loadSampleScenario() {
     );
 
     updateStatus();
-    pushAudit("Mock CRPF scenario loaded", "Loaded tender_sample.txt and 3 bidder evidence files.");
-    await extractAndRenderCriteria("Mock CRPF scenario tender");
+    pushAudit("Sample scenario loaded", "Loaded tender_sample.txt and 3 bidder evidence files.");
+    await extractAndRenderCriteria("Sample scenario tender");
     renderCriteria();
-    runEvaluation("Mock CRPF scenario evaluated");
+    runEvaluation("Sample scenario evaluated");
   } catch (error) {
     state.tenderText = fallbackScenario.tenderText;
-    state.tenderSource = "embedded_mock_crpf_scenario";
+    state.tenderSource = "embedded_sample_scenario";
     state.bidders = await Promise.all(
       fallbackScenario.bidders.map((bidder) => normalizeBidderEvidence(bidder, bidder.bidderName)),
     );
 
     updateStatus();
-    pushAudit("Mock CRPF scenario loaded", `Used embedded scenario because file loading failed: ${error.message}`);
-    await extractAndRenderCriteria("Embedded mock CRPF scenario");
+    pushAudit("Sample scenario loaded", `Used embedded scenario because file loading failed: ${error.message}`);
+    await extractAndRenderCriteria("Embedded sample scenario");
     renderCriteria();
-    runEvaluation("Mock CRPF scenario evaluated");
+    runEvaluation("Sample scenario evaluated");
   }
 }
 
@@ -208,7 +208,7 @@ function resetApp(clearInputs = true) {
   }
 
   document.getElementById("tender-summary").innerHTML =
-    "Load the mock CRPF scenario or upload a tender to view extracted criteria.";
+    "Load a sample scenario or upload a tender to view extracted criteria.";
   document.getElementById("criteria-list").innerHTML = "No criteria available yet.";
   setHtmlIfPresent(
     "amendment-history",
@@ -489,7 +489,7 @@ async function handleBidderUploads(event) {
 }
 
 function updateStatus() {
-  const tenderLabel = state.tenderSource === "embedded_mock_crpf_scenario" ? "Mock CRPF scenario" : state.tenderSource;
+  const tenderLabel = state.tenderSource === "embedded_sample_scenario" ? "Sample scenario" : state.tenderSource;
   document.getElementById("tender-status").textContent = tenderLabel
     ? `${tenderLabel} loaded`
     : "No tender loaded";
