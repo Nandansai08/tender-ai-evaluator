@@ -1,64 +1,111 @@
-# AI Tender Evaluator
+# TenderWiseAI - Working Prototype
 
-AI-assisted tender eligibility evaluation with explainable, criterion-level decisions.
+TenderWiseAI is a working web prototype for AI-assisted tender eligibility evaluation with explainable, criterion-level decisions.
+
+## Live Website
+
+Use the hosted working prototype here:
+
+https://tenderwiseai-ctehgcdyh5hrbhca.centralindia-01.azurewebsites.net/
+
+## What this prototype does
+
+- Upload a tender document.
+- Upload optional tender amendments (corrigenda/addenda).
+- Upload bidder evidence files.
+- Extract and normalize eligibility criteria.
+- Review and approve criteria before evaluation.
+- Evaluate each bidder criterion-by-criterion.
+- Route ambiguous cases to manual review.
+- Allow reviewer overrides with notes.
+- Export a structured JSON report with audit information.
 
 ## Who this is for
 
-This app is for procurement and review teams who need faster initial screening of bidder submissions while preserving human control, traceability, and auditability.
+- Procurement teams
+- Tender evaluation committees
+- Compliance and audit reviewers
 
-## What you can do
+The prototype is designed to improve speed and consistency while keeping final control with human reviewers.
 
-- Upload one tender and optional amendments/corrigenda.
-- Upload bidder evidence files.
-- Extract and review eligibility criteria before evaluation.
-- Run bidder-wise evaluation with criterion-level outcomes:
-  - `Eligible`
-  - `Not Eligible`
-  - `Needs Manual Review`
-- Inspect evidence references (source file and page context).
-- Override individual criterion outcomes with reviewer notes.
-- Export a structured JSON report with review and audit metadata.
+## Supported file formats
 
-## Supported files
+Tender and amendment uploads:
 
-- Tender and amendments: `.txt`, `.pdf`, `.doc`, `.docx`, image formats.
-- Bidder submissions: `.json`, `.pdf`, `.doc`, `.docx`, image formats.
+- `.txt`
+- `.pdf`
+- `.doc`
+- `.docx`
+- image formats (`.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.bmp`)
 
-## Quick start
+Bidder uploads:
+
+- `.json`
+- `.pdf`
+- `.doc`
+- `.docx`
+- image formats (`.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.bmp`)
+
+## Evaluation outcomes
+
+Each criterion returns one of:
+
+- `Eligible`
+- `Not Eligible`
+- `Needs Manual Review`
+
+The system also provides evidence-linked reasoning for each result.
+
+## Typical workflow
+
+1. Upload tender document.
+2. Upload optional amendments.
+3. Upload bidder files.
+4. Review extracted criteria and approve.
+5. Click `Run Evaluation`.
+6. Review bidder results and manual-review queue.
+7. Apply overrides if required.
+8. Export report.
+
+## Report contents
+
+- Bidder-level summary
+- Criterion-level verdicts and reasons
+- Evidence references and locations
+- Reviewer override details
+- Audit trail events
+
+## Run locally
+
+If you want to run the prototype locally:
 
 1. Install Node.js 18+.
-2. Start the app:
+2. Start the server:
 
 ```bash
 node server.js
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000).
+3. Open:
 
-## How to use
-
-1. Upload your tender, optional amendments, and bidder files.
-2. Confirm extracted criteria and approve them.
-3. Click `Run Evaluation`.
-4. Review outcomes, especially `Needs Manual Review` items.
-5. Export the report.
-
-## What the output includes
-
-- Bidder-level overall recommendation.
-- Criterion-level verdicts with reason text.
-- Evidence references and location metadata.
-- Reviewer overrides and notes.
-- Audit trail events for key workflow actions.
+http://localhost:3000
 
 ## Current limitations
 
-- Report export is currently JSON only.
-- Persistence, authentication, and role-based access control are not fully implemented yet.
-- Interactive in-document highlighting is not yet available.
+- Export is currently JSON only.
+- Persistent storage is not fully implemented.
+- In-document visual highlighting is limited.
 
-## More details
+## Planned features
 
-- Full solution write-up: [SOLUTION.md](./SOLUTION.md)
-- Demo walkthrough script: [VIDEO_SCRIPT.md](./VIDEO_SCRIPT.md)
-- Developer notes: [DEVELOPMENT.md](./DEVELOPMENT.md)
+- Role-based access control (RBAC) with roles for admin, reviewer, and observer
+- Persistent database backend
+- Full authentication integration
+- PDF and Excel export formats
+- Interactive document viewer with bounding-box highlighting
+
+## Project documents
+
+- Solution write-up: [SOLUTION.md](./SOLUTION.md)
+- Walkthrough script: [VIDEO_SCRIPT.md](./VIDEO_SCRIPT.md)
+- Development notes: [DEVELOPMENT.md](./DEVELOPMENT.md)
