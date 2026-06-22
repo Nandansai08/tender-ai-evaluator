@@ -1,5 +1,10 @@
 # TenderWiseAI - Working Prototype
 
+[![CI](https://github.com/Nandansai08/tender-ai-evaluator/actions/workflows/ci.yml/badge.svg)](https://github.com/Nandansai08/tender-ai-evaluator/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Issues](https://img.shields.io/github/issues/Nandansai08/tender-ai-evaluator)](https://github.com/Nandansai08/tender-ai-evaluator/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
 TenderWiseAI is a working web prototype for AI-assisted tender eligibility evaluation with explainable, criterion-level decisions.
 
 **Round 1 Status:** All non-negotiables and success criteria met. See [REQUIREMENTS_COMPLIANCE.md](./REQUIREMENTS_COMPLIANCE.md) for detailed mapping.
@@ -127,3 +132,16 @@ No environment variables are required for the local prototype.
 - Walkthrough script: [VIDEO_SCRIPT.md](./VIDEO_SCRIPT.md)
 - Demo video: [Google Drive link](https://drive.google.com/file/d/1Uz4tA18fi-GaBDta8TraoO6mYBwgFnw2/view?usp=drive_link)
 - Development notes: [DEVELOPMENT.md](./DEVELOPMENT.md)
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup
+steps and pull request guidelines, and our [Code of Conduct](./CODE_OF_CONDUCT.md).
+Found a bug or have a feature idea? [Open an issue](https://github.com/Nandansai08/tender-ai-evaluator/issues/new/choose).
+
+For security vulnerabilities, see [SECURITY.md](./SECURITY.md) instead of
+filing a public issue.
+
+## License
+
+Licensed under the [MIT License](./LICENSE).
