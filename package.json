@@ -5,11 +5,15 @@
   "description": "AI-based tender evaluation and eligibility analysis platform.",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/evaluator.test.js"
+    "test": "node tests/evaluator.test.js",
+    "lint": "eslint . --ext .js"
   },
   "dependencies": {
     "@azure/ai-form-recognizer": "^5.1.0",
     "mammoth": "^1.12.0",
     "word-extractor": "^1.0.4"
+  },
+  "devDependencies": {
+    "eslint": "^10.5.0"
   }
 }
