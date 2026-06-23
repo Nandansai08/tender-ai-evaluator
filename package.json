@@ -1,8 +1,16 @@
 {
   "name": "ai-tender-evaluator",
   "version": "1.0.0",
-  "private": true,
   "description": "AI-based tender evaluation and eligibility analysis platform.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nandansai08/tender-ai-evaluator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nandansai08/tender-ai-evaluator/issues"
+  },
+  "homepage": "https://github.com/Nandansai08/tender-ai-evaluator#readme",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/evaluator.test.js"

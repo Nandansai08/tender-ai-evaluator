@@ -19,7 +19,8 @@ npm test
 
 ## RBAC and immutable run snapshots
 
-- Checklist and task breakdown: [`RBAC_RUN_SNAPSHOT_CHECKLIST.md`](./RBAC_RUN_SNAPSHOT_CHECKLIST.md)
+- Tracked as a planned feature; see the open issue for role-based access
+  control in the repository's issue tracker.
 - Purpose:
   - define role-based access controls for reviewer/admin actions
   - preserve run snapshots as immutable audit artifacts after sign-off
