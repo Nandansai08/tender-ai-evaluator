@@ -113,6 +113,34 @@ npm test
 
 No environment variables are required for the local prototype.
 
+## Running with Docker
+
+If you prefer not to install Node.js locally, you can run the application using Docker.
+
+1. Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+2. Start the application:
+
+```bash
+docker compose up --build
+```
+
+3. Open your browser and visit:
+
+```
+http://localhost:3000
+```
+
+4. To stop the application:
+
+```bash
+docker compose down
+```
+
 ## Current limitations
 
 - Persistent storage is not fully implemented.

@@ -25,6 +25,34 @@ basics for getting a change merged.
    npm test
    ```
 
+### Alternative: Docker Setup
+
+If you prefer using Docker instead of installing Node.js locally:
+
+1. Copy the example environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Build and start the application:
+
+   ```bash
+   docker compose up --build
+   ```
+
+3. The application will be available at:
+
+   ```
+   http://localhost:3000
+   ```
+
+4. To stop the application:
+
+   ```bash
+   docker compose down
+   ```
+
 ## Making changes
 
 - Create a branch off `main` for your change: `git checkout -b feature/short-description`.
